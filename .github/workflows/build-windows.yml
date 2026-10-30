@@ -22,12 +22,15 @@ jobs:
       # CRT (/MT) to match miu's Release config; the CMake default (/MD) causes LNK2038.
       # Its CMakeLists checks paths relative to the current directory, so configure in-source.
       # The -D arguments are quoted because pwsh splits unquoted "=3.5" into "=3" and ".5".
+      # An empty gtest/ skips its googletest download, which points at the removed
+      # "master" branch; only the ced target is needed here.
       - name: Build compact_enc_det
         shell: pwsh
         working-directory: ${{ runner.temp }}
         run: |
           git clone --depth 1 https://github.com/google/compact_enc_det.git ced
           Set-Location ced
+          New-Item -ItemType Directory gtest | Out-Null
           cmake . -G "Visual Studio 18 2026" -A x64 `
             "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
             "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW" `
