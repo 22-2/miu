@@ -20,21 +20,25 @@ jobs:
 
       # miu.vcxproj links ced.lib from lib/ (see README). Build it with the static
       # CRT (/MT) to match miu's Release config; the CMake default (/MD) causes LNK2038.
+      # Its CMakeLists checks paths relative to the current directory, so configure in-source.
+      # The -D arguments are quoted because pwsh splits unquoted "=3.5" into "=3" and ".5".
       - name: Build compact_enc_det
         shell: pwsh
+        working-directory: ${{ runner.temp }}
         run: |
-          git clone --depth 1 https://github.com/google/compact_enc_det.git "$env:RUNNER_TEMP/ced"
-          cmake -S "$env:RUNNER_TEMP/ced" -B "$env:RUNNER_TEMP/ced/build" -G "Visual Studio 18 2026" -A x64 `
-            -DCMAKE_POLICY_VERSION_MINIMUM=3.5 `
-            -DCMAKE_POLICY_DEFAULT_CMP0091=NEW `
-            -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
-          cmake --build "$env:RUNNER_TEMP/ced/build" --config Release --target ced
+          git clone --depth 1 https://github.com/google/compact_enc_det.git ced
+          Set-Location ced
+          cmake . -G "Visual Studio 18 2026" -A x64 `
+            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" `
+            "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW" `
+            "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded"
+          cmake --build . --config Release --target ced
 
       - name: Place ced.lib
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force lib | Out-Null
-          $ced = Get-ChildItem "$env:RUNNER_TEMP/ced/build" -Recurse -Filter ced.lib | Select-Object -First 1
+          $ced = Get-ChildItem "$env:RUNNER_TEMP/ced/lib" -Recurse -Filter ced.lib | Select-Object -First 1
           if (-not $ced) { throw 'ced.lib was not built' }
           Copy-Item $ced.FullName lib/ced.lib
 
