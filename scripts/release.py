@@ -219,28 +219,16 @@ def main():
         notes = args.notes
         if not notes:
             # Default release notes template
-            notes = f"# miu {release_name} リリースノート\n\n" + r"""### 🎨 25言語のシンタックスハイライト新規追加（全49カテゴリ・120種以上の拡張子対応）＆ 全角文字の行番号位置ズレ修正・水平スクロールバー＆編集エンジンの精度向上
+            notes = f"# miu {release_name} リリースノート\n\n" + r"""### 🔍 全角文字・多言語テキストの正規表現検索・置換の改善とスクロール表示の修正
 
-1. **25種類の言語・設定ファイルのシンタックスハイライト＆コメント切り替え（`Ctrl+/`）新規追加**
-   - 従来の24カテゴリから **全49カテゴリ（120種以上の拡張子・特殊ファイル名）** へ大幅拡充しました。ゼロアロケーション・高速決定性スキャナにより、超巨大ファイルでもフレーム落ちなく瞬時に色分け表示します。
-   - **モダン・統計・関数型・スクリプト言語（10種）**:
-     - **Dart / Flutter** (`.dart`)、**R** (`.r`)、**Zig** (`.zig`)、**Scala** (`.scala`, `.sc`)、**Perl** (`.pl`, `.pm`)、**Visual Basic / VBA / VBScript** (`.vb`, `.vbs`, `.bas`, `.vba`)、**F#** (`.fs`, `.fsi`, `.fsx`)、**Julia** (`.jl`)、**Haskell** (`.hs`, `.lhs`)、**Elixir** (`.ex`, `.exs`)
-   - **クラウド・コンテナ・ビルド・設定・スキーマ（8種）**:
-     - **Dockerfile** (`Dockerfile`, `Containerfile`, `Dockerfile.*`, `.dockerfile`)、**Terraform / HCL** (`.tf`, `.tfvars`, `.hcl`)、**TOML / `.env`** (`.toml`, `.env`, `.env.*`)、**GraphQL** (`.graphql`, `.gql`)、**Protocol Buffers** (`.proto`)、**CMake** (`.cmake`, `CMakeLists.txt`)、**Makefile** (`Makefile`, `GNUmakefile`, `.mk`, `.mak`)、**Windows レジストリ** (`.reg`)
-   - **シェーダー・低レイヤ・ハードウェア記述言語（4種）**:
-     - **Shaders HLSL / GLSL / WGSL** (`.hlsl`, `.fx`, `.glsl`, `.vert`, `.frag`, `.comp`, `.geom`, `.tesc`, `.tese`, `.wgsl`)、**Assembly (x86/x64/ARM/GAS)** (`.asm`, `.s`, `.inc`)、**Verilog / SystemVerilog** (`.v`, `.sv`, `.svh`, `.vh`)、**VHDL** (`.vhd`, `.vhdl`)
-   - **開発ツール・ログ・既存言語の派生拡張子（3種＋派生拡張子）**:
-     - **Diff / Patch** (`.diff`, `.patch`：追加行・削除行・ハンクヘッダの色分け)、**Log ファイル** (`.log`：タイムスタンプ・`ERROR`/`WARN`/`INFO`/`DEBUG` 重要度・IPv4・文字列の色分け)、および C/C++ (`.rc`, `.ino`, `.cu`, `.cuh`, `.ipp`, `.tpp`, `.hh`, `.inl`)、XML/MSBuild (`.vcxproj`, `.csproj`, `.fsproj`, `.vbproj`, `.props`, `.targets`, `.wapproj`, `.appxmanifest`, `.resw`, `.resx`, `.plist`, `.xaml`, `.nuspec`, `.config`, `.manifest`)、Python (`.pyw`, `.pyi`)、PowerShell (`.psm1`, `.psd1`) に対応しました。
+1. **全角文字・多言語文字に対する正規表現（`.` や文字範囲など）の検索・置換精度を改善**
+   - 日本語（ひらがな・カタカナ・漢字・全角記号）、韓国語（ハングル）、中国語、絵文字などの文字に対して、正規表現の `.`（任意の1文字）や文字クラス（`[あ-ん]`、`[가-힣]`、`[一-龥]` など）・量指定子（`+`、`*`、`{n}`）を使用した際、1文字が複数回（3回など）に分かれて変換されてしまう問題を修正し、正確に1文字単位で検索・置換されるようになりました。
 
-2. **全角文字（日本語・CJK・絵文字）入力時の行番号と本文の縦位置ズレ修正**
-   - DirectWrite のフォントフォールバック（Consolas → Yu Gothic UI / Meiryo 等）発生時に行のアセント・ディセントが微小変動していた問題を特定し、本文レイアウトと行番号ガターの両方に均一ラインスペーシング（`DWRITE_LINE_SPACING_METHOD_UNIFORM`: `lineHeight` / `baseline = lineHeight * 0.8f`）を適用しました。
-   - 半角のみの行と全角を含む行でベースラインと行高が 1 ピクセルの狂いもなく完全一致し、描画パフォーマンスの低下も一切ありません。
+2. **スクロール時に画面外へ出たカーソルの表示を改善**
+   - カーソルのある行が画面外へスクロールして見切れた際に、画面の一番上に表示されている行の先頭にカーソルが表示されてしまう現象を修正し、カーソルが画面内にあるときのみ自然に表示されるようになりました。
 
-3. **水平スクロールバーの表示精度改善 ＆ 編集エンジンの堅牢性強化**
-   - **新規作成直後の改行で水平スクロールバーが表示される不具合を修正**: `ensureCaretVisible()` で負の `hScrollPos`（左マージンオフセット）がクランプ前に加算されていた計算順序の不整合を修正し、実際にテキスト幅が表示領域を超えた時のみ水平スクロールバーが表示されるようになりました。
-   - **単一行編集時の行幅再計測の統一**: 全角文字入力時の UTF-8 バイト数と表示幅の乖離による不要な水平スクロールバー表示を解消し、長文行を Backspace / Delete で短くした際にも即座に水平スクロールバーが消えるようになりました。
-   - **最終行（改行なし）での下方向行複製（`Alt+Shift+Down`）の修正**: 末尾に改行がない最終行を複製した際に余分な空行が1行多く挿入されていた問題を修正しました。
-   - **Undo / Redo およびファイル切り替え時の状態整合性強化**: Undo / Redo 時の矩形選択パディングのロールバック漏れ修正、および新規作成・ファイルオープン時の矩形選択モード状態リセットを追加しました。
+3. **高速で軽快な編集・一括置換・リアルタイムプレビュー**
+   - 大容量ファイルの編集・スクロール、数千〜数万箇所におよぶ「すべて置換」、および Markdown / LaTeX 数式 / Mermaid 図表のリアルタイムプレビューが引き続き高速かつ快適に動作します。
 """
         elif os.path.exists(notes):
             with open(notes, "r", encoding="utf-8") as f:

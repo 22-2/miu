@@ -15,12 +15,33 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 
 @interface MiuSplitterView : NSView
 @property (weak) EditorView *editorView;
+@property (nonatomic, assign) BOOL isHovered;
+@property (nonatomic, assign) BOOL isDragging;
+@end
+
+@interface MiuMacWorkspaceView : NSVisualEffectView
+@property (weak) EditorView *editorView;
+@end
+
+@interface MiuScroller : NSView
+@property (weak) EditorView *editorView;
+@property (weak) id target;
+@property (nonatomic, assign) SEL action;
+@property (nonatomic, assign) BOOL isVertical;
+@property (nonatomic, assign) BOOL enabled;
+@property (nonatomic, assign) double doubleValue;
+@property (nonatomic, assign) double knobProportion;
+@property (nonatomic, assign) BOOL isHovered;
+@property (nonatomic, assign) BOOL isDraggingKnob;
+- (NSRect)knobRect;
 @end
 
 @interface EditorView : NSView <NSTextInputClient, NSTextFieldDelegate>
 {
 @public
     std::shared_ptr<Editor> editor;
+    MiuScroller *vScroller;
+    MiuScroller *hScroller;
     NSPanel *findPanel;
     NSTextField *findLabel;
     NSTextField *findTextField;
@@ -85,6 +106,9 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     self.previewPageLoaded = YES;
     EditorView *ev = self.editorView;
+    if (ev) {
+        [ev updatePreviewBackground];
+    }
     if (ev && ev->editor && ev->editor->showPreview && ev->editor->previewInitialLoaded) {
         MiuPreview::PreviewRenderResult res = ev->editor->getPreviewRenderResult();
         if (res.isMdOrMermaidShell) {
@@ -124,17 +148,75 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 }
 @end
 
-@implementation MiuSplitterView
+@implementation MiuSplitterView {
+    NSTrackingArea *trackingArea;
+}
+- (instancetype)initWithFrame:(NSRect)frameRect {
+    if (self = [super initWithFrame:frameRect]) {
+        _isHovered = NO;
+        _isDragging = NO;
+        if (@available(macOS 14.0, *)) self.clipsToBounds = YES;
+        [self setWantsLayer:YES];
+        if (self.layer) {
+            self.layer.masksToBounds = YES;
+            self.layer.opaque = NO;
+            self.layer.backgroundColor = [NSColor clearColor].CGColor;
+        }
+    }
+    return self;
+}
+- (BOOL)isOpaque {
+    return NO;
+}
 - (void)resetCursorRects {
     [super resetCursorRects];
     [self addCursorRect:[self bounds] cursor:[NSCursor resizeLeftRightCursor]];
 }
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    if (trackingArea) {
+        [self removeTrackingArea:trackingArea];
+    }
+    trackingArea = [[NSTrackingArea alloc] initWithRect:[self bounds]
+                                                options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                                  owner:self
+                                               userInfo:nil];
+    [self addTrackingArea:trackingArea];
+}
+- (void)mouseEntered:(NSEvent *)event {
+    self.isHovered = YES;
+    [self setNeedsDisplay:YES];
+}
+- (void)mouseExited:(NSEvent *)event {
+    self.isHovered = NO;
+    [self setNeedsDisplay:YES];
+}
+- (void)mouseDown:(NSEvent *)event {
+    self.isDragging = YES;
+    [self setNeedsDisplay:YES];
+}
+- (void)mouseUp:(NSEvent *)event {
+    self.isDragging = NO;
+    [self setNeedsDisplay:YES];
+}
 - (void)drawRect:(NSRect)dirtyRect {
+    NSRect b = [self bounds];
+    NSRectClip(b);
     EditorView *ev = self.editorView;
     BOOL dark = (ev && ev->editor) ? ev->editor->isDarkMode : NO;
-    NSColor *col = dark ? [NSColor colorWithCalibratedWhite:0.25 alpha:0.9] : [NSColor colorWithCalibratedWhite:0.82 alpha:0.9];
-    [col setFill];
-    NSRectFill(dirtyRect);
+    if (self.isHovered || self.isDragging) {
+        NSColor *sashCol = dark
+            ? [NSColor colorWithSRGBRed:1.0 green:1.0 blue:1.0 alpha:0.025]
+            : [NSColor colorWithSRGBRed:0.0 green:0.0 blue:0.0 alpha:0.03];
+        [sashCol setFill];
+        NSRectFillUsingOperation(b, NSCompositingOperationSourceOver);
+    }
+    NSColor *lineCol = dark
+        ? [NSColor colorWithSRGBRed:1.0 green:1.0 blue:1.0 alpha:0.05]
+        : [NSColor colorWithSRGBRed:0.0 green:0.0 blue:0.0 alpha:0.06];
+    [lineCol setFill];
+    NSRect lineRect = NSMakeRect(std::max((CGFloat)0.0, b.size.width - 1.0), 0.0, 1.0, b.size.height);
+    NSRectFillUsingOperation(lineRect, NSCompositingOperationSourceOver);
 }
 - (void)mouseDragged:(NSEvent *)event {
     EditorView *ev = self.editorView;
@@ -149,6 +231,182 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
         [ev updateScrollers];
         [ev setNeedsDisplay:YES];
     }
+}
+@end
+
+@implementation MiuMacWorkspaceView
+- (void)layout {
+    [super layout];
+    if (self.editorView) {
+        [self.editorView layoutSplitViews];
+    }
+}
+- (void)resizeSubviewsWithOldSize:(NSSize)oldSize {
+    [super resizeSubviewsWithOldSize:oldSize];
+    if (self.editorView) {
+        [self.editorView layoutSplitViews];
+    }
+}
+@end
+
+@implementation MiuScroller {
+    NSTrackingArea *trackingArea;
+    CGFloat dragStartCoord;
+    double dragStartVal;
+}
+- (instancetype)initWithFrame:(NSRect)frameRect {
+    if (self = [super initWithFrame:frameRect]) {
+        _enabled = YES;
+        _doubleValue = 0.0;
+        _knobProportion = 1.0;
+        _isHovered = NO;
+        _isDraggingKnob = NO;
+        if (@available(macOS 14.0, *)) self.clipsToBounds = YES;
+        [self setWantsLayer:YES];
+        if (self.layer) {
+            self.layer.masksToBounds = YES;
+            self.layer.opaque = NO;
+            self.layer.backgroundColor = [NSColor clearColor].CGColor;
+        }
+    }
+    return self;
+}
+- (BOOL)isFlipped { return YES; }
+- (BOOL)isOpaque { return NO; }
+- (void)setDoubleValue:(double)doubleValue {
+    double clamped = std::clamp(doubleValue, 0.0, 1.0);
+    if (std::abs(_doubleValue - clamped) > 1e-6) {
+        _doubleValue = clamped;
+        [self setNeedsDisplay:YES];
+    }
+}
+- (void)setKnobProportion:(double)knobProportion {
+    double clamped = std::clamp(knobProportion, 0.0, 1.0);
+    if (std::abs(_knobProportion - clamped) > 1e-6) {
+        _knobProportion = clamped;
+        [self setNeedsDisplay:YES];
+    }
+}
+- (void)setEnabled:(BOOL)enabled {
+    if (_enabled != enabled) {
+        _enabled = enabled;
+        [self setNeedsDisplay:YES];
+    }
+}
+- (void)resetCursorRects {
+    [super resetCursorRects];
+    [self addCursorRect:[self bounds] cursor:[NSCursor arrowCursor]];
+}
+- (void)updateTrackingAreas {
+    [super updateTrackingAreas];
+    if (trackingArea) {
+        [self removeTrackingArea:trackingArea];
+    }
+    trackingArea = [[NSTrackingArea alloc] initWithRect:[self bounds]
+                                                options:NSTrackingMouseEnteredAndExited | NSTrackingActiveAlways | NSTrackingInVisibleRect
+                                                  owner:self
+                                               userInfo:nil];
+    [self addTrackingArea:trackingArea];
+}
+- (void)mouseEntered:(NSEvent *)event {
+    self.isHovered = YES;
+    [self setNeedsDisplay:YES];
+}
+- (void)mouseExited:(NSEvent *)event {
+    self.isHovered = NO;
+    [self setNeedsDisplay:YES];
+}
+- (NSRect)knobRect {
+    NSRect b = [self bounds];
+    CGFloat padEnd = 2.0;
+    BOOL active = self.isHovered || self.isDraggingKnob;
+    CGFloat thickness = active ? 8.0 : 6.0;
+    if (self.isVertical) {
+        CGFloat crossInset = std::max(0.0, (b.size.width - thickness) * 0.5);
+        CGFloat trackLen = std::max(0.0, b.size.height - padEnd * 2.0);
+        CGFloat prop = std::clamp(self.knobProportion, 0.0, 1.0);
+        CGFloat knobLen = std::min(trackLen, std::max(28.0, std::round(trackLen * prop)));
+        CGFloat maxOffset = std::max(0.0, trackLen - knobLen);
+        CGFloat offset = std::round(std::clamp(self.doubleValue, 0.0, 1.0) * maxOffset);
+        return NSMakeRect(b.origin.x + crossInset, b.origin.y + padEnd + offset, thickness, knobLen);
+    } else {
+        CGFloat crossInset = std::max(0.0, (b.size.height - thickness) * 0.5);
+        CGFloat trackLen = std::max(0.0, b.size.width - padEnd * 2.0);
+        CGFloat prop = std::clamp(self.knobProportion, 0.0, 1.0);
+        CGFloat knobLen = std::min(trackLen, std::max(28.0, std::round(trackLen * prop)));
+        CGFloat maxOffset = std::max(0.0, trackLen - knobLen);
+        CGFloat offset = std::round(std::clamp(self.doubleValue, 0.0, 1.0) * maxOffset);
+        return NSMakeRect(b.origin.x + padEnd + offset, b.origin.y + crossInset, knobLen, thickness);
+    }
+}
+- (void)sendActionToTarget {
+    if (self.target && self.action) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+        [self.target performSelector:self.action withObject:self];
+#pragma clang diagnostic pop
+    }
+}
+- (void)drawRect:(NSRect)dirtyRect {
+    NSRect b = [self bounds];
+    NSRectClip(b);
+    if (!self.enabled || self.knobProportion >= 1.0) return;
+    EditorView *ev = self.editorView;
+    BOOL dark = (ev && ev->editor) ? ev->editor->isDarkMode : NO;
+    BOOL active = self.isHovered || self.isDraggingKnob;
+    NSColor *knobColor = dark
+        ? [NSColor colorWithSRGBRed:1.0 green:1.0 blue:1.0 alpha:(active ? 0.65 : 0.42)]
+        : [NSColor colorWithSRGBRed:0.0 green:0.0 blue:0.0 alpha:(active ? 0.60 : 0.38)];
+    NSRect kr = [self knobRect];
+    if (kr.size.width > 0.0 && kr.size.height > 0.0) {
+        CGFloat radius = (self.isVertical ? kr.size.width : kr.size.height) * 0.5;
+        NSBezierPath *path = [NSBezierPath bezierPathWithRoundedRect:kr xRadius:radius yRadius:radius];
+        [knobColor setFill];
+        [path fill];
+    }
+}
+- (void)mouseDown:(NSEvent *)event {
+    if (!self.enabled) return;
+    NSPoint pt = [self convertPoint:[event locationInWindow] fromView:nil];
+    NSRect kr = [self knobRect];
+    CGFloat padEnd = 2.0;
+    CGFloat trackLen = self.isVertical
+        ? std::max(0.0, self.bounds.size.height - padEnd * 2.0)
+        : std::max(0.0, self.bounds.size.width - padEnd * 2.0);
+    CGFloat knobLen = self.isVertical ? kr.size.height : kr.size.width;
+    CGFloat maxOffset = std::max(0.0, trackLen - knobLen);
+    CGFloat clickCoord = self.isVertical ? pt.y : pt.x;
+    if (!NSPointInRect(pt, kr) && maxOffset > 0.0) {
+        CGFloat targetOffset = std::clamp(clickCoord - padEnd - knobLen * 0.5, 0.0, maxOffset);
+        _doubleValue = targetOffset / maxOffset;
+        [self sendActionToTarget];
+    }
+    self.isDraggingKnob = YES;
+    dragStartCoord = clickCoord;
+    dragStartVal = _doubleValue;
+    [self setNeedsDisplay:YES];
+}
+- (void)mouseDragged:(NSEvent *)event {
+    if (!self.isDraggingKnob || !self.enabled) return;
+    NSPoint pt = [self convertPoint:[event locationInWindow] fromView:nil];
+    NSRect kr = [self knobRect];
+    CGFloat padEnd = 2.0;
+    CGFloat trackLen = self.isVertical
+        ? std::max(0.0, self.bounds.size.height - padEnd * 2.0)
+        : std::max(0.0, self.bounds.size.width - padEnd * 2.0);
+    CGFloat knobLen = self.isVertical ? kr.size.height : kr.size.width;
+    CGFloat maxOffset = std::max(0.0, trackLen - knobLen);
+    if (maxOffset > 0.0) {
+        CGFloat curCoord = self.isVertical ? pt.y : pt.x;
+        double delta = (curCoord - dragStartCoord) / maxOffset;
+        _doubleValue = std::clamp(dragStartVal + delta, 0.0, 1.0);
+        [self sendActionToTarget];
+        [self setNeedsDisplay:YES];
+    }
+}
+- (void)mouseUp:(NSEvent *)event {
+    self.isDraggingKnob = NO;
+    [self setNeedsDisplay:YES];
 }
 @end
 
@@ -199,7 +457,6 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 @end
 
 @implementation EditorView {
-    NSScroller *vScroller, *hScroller;
     NSPoint boxSelectStartPoint;
     NSPoint dragStartPoint;
     BOOL isPotentialDragMove;
@@ -326,13 +583,17 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
             if ([p runModal] == NSModalResponseOK) return strongSelf->editor->openFileFromPath([[[p URLs] objectAtIndex:0].path UTF8String]);
             return false;
         };
-        CGFloat sw = [NSScroller scrollerWidthForControlSize:NSControlSizeRegular scrollerStyle:NSScrollerStyleLegacy];
-        vScroller = [[NSScroller alloc] initWithFrame:NSMakeRect(fr.size.width - sw, 0, sw, fr.size.height - sw)];
+        CGFloat sw = 14.0;
+        vScroller = [[MiuScroller alloc] initWithFrame:NSMakeRect(fr.size.width - sw, 0, sw, fr.size.height - sw)];
+        vScroller.editorView = self;
+        vScroller.isVertical = YES;
         [vScroller setAutoresizingMask:NSViewMinXMargin | NSViewHeightSizable];
         [vScroller setTarget:self];
         [vScroller setAction:@selector(scrollAction:)];
         [self addSubview:vScroller];
-        hScroller = [[NSScroller alloc] initWithFrame:NSMakeRect(0, fr.size.height - sw, fr.size.width - sw, sw)];
+        hScroller = [[MiuScroller alloc] initWithFrame:NSMakeRect(0, fr.size.height - sw, fr.size.width - sw, sw)];
+        hScroller.editorView = self;
+        hScroller.isVertical = NO;
         [hScroller setAutoresizingMask:NSViewWidthSizable | NSViewMinYMargin];
         [hScroller setTarget:self];
         [hScroller setAction:@selector(scrollAction:)];
@@ -347,13 +608,51 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 }
 
 - (void)updatePreviewBackground {
-    if (!previewWebView) return;
     BOOL dark = editor ? editor->isDarkMode : NO;
     NSColor *bgColor = dark
-        ? [NSColor colorWithSRGBRed:0.118 green:0.118 blue:0.118 alpha:1.0]
+        ? [NSColor colorWithSRGBRed:0.0 green:0.0 blue:0.0 alpha:1.0]
         : [NSColor colorWithSRGBRed:1.0 green:1.0 blue:1.0 alpha:1.0];
+    NSView *container = [self superview];
+    if (container) {
+        if (@available(macOS 14.0, *)) container.clipsToBounds = YES;
+        [container setNeedsDisplay:YES];
+    }
+    if (@available(macOS 14.0, *)) self.clipsToBounds = YES;
+    [self setWantsLayer:YES];
+    if (self.layer) {
+        self.layer.masksToBounds = YES;
+        self.layer.backgroundColor = [NSColor clearColor].CGColor;
+        self.layer.opaque = NO;
+    }
+    if (vScroller) {
+        if (vScroller.layer) {
+            vScroller.layer.backgroundColor = [NSColor clearColor].CGColor;
+            vScroller.layer.opaque = NO;
+        }
+        [vScroller setNeedsDisplay:YES];
+    }
+    if (hScroller) {
+        if (hScroller.layer) {
+            hScroller.layer.backgroundColor = [NSColor clearColor].CGColor;
+            hScroller.layer.opaque = NO;
+        }
+        [hScroller setNeedsDisplay:YES];
+    }
+    if (splitterView) {
+        if (@available(macOS 14.0, *)) splitterView.clipsToBounds = YES;
+        [splitterView setWantsLayer:YES];
+        if (splitterView.layer) {
+            splitterView.layer.masksToBounds = YES;
+            splitterView.layer.backgroundColor = [NSColor clearColor].CGColor;
+            splitterView.layer.opaque = NO;
+        }
+        [splitterView setNeedsDisplay:YES];
+    }
+    if (!previewWebView) return;
+    if (@available(macOS 14.0, *)) previewWebView.clipsToBounds = YES;
     [previewWebView setWantsLayer:YES];
     if (previewWebView.layer) {
+        previewWebView.layer.masksToBounds = YES;
         previewWebView.layer.backgroundColor = bgColor.CGColor;
         previewWebView.layer.opaque = YES;
     }
@@ -371,25 +670,32 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
     WKWebViewConfiguration *cfg = [[WKWebViewConfiguration alloc] init];
     WKUserContentController *ucc = [[WKUserContentController alloc] init];
     [ucc addScriptMessageHandler:previewMsgHandler name:@"miuPreview"];
+    std::string sbJsStr = std::string("(function(){") + MiuPreview::getPreviewScrollbarJs() + "})();";
+    NSString *sbJsNS = [NSString stringWithUTF8String:sbJsStr.c_str()];
+    if (sbJsNS) {
+        WKUserScript *sbUserScript = [[WKUserScript alloc] initWithSource:sbJsNS
+                                                            injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
+                                                         forMainFrameOnly:YES];
+        [ucc addUserScript:sbUserScript];
+    }
     cfg.userContentController = ucc;
 
     NSRect cb = container.bounds;
     CGFloat initW = std::max((CGFloat)200.0, std::floor(cb.size.width * 0.5));
     CGFloat initH = std::max((CGFloat)200.0, cb.size.height - 28.0);
-    previewWebView = [[WKWebView alloc] initWithFrame:NSMakeRect(initW, 0, initW, initH) configuration:cfg];
+    previewWebView = [[WKWebView alloc] initWithFrame:NSMakeRect(initW + 1.0, 0, initW, initH) configuration:cfg];
     previewWebView.navigationDelegate = previewMsgHandler;
     if ([previewWebView respondsToSelector:@selector(setValue:forKey:)]) {
         [previewWebView setValue:@(YES) forKey:@"drawsBackground"];
     }
-    [self updatePreviewBackground];
     [previewWebView setHidden:YES];
     [container addSubview:previewWebView];
 
-    splitterView = [[MiuSplitterView alloc] initWithFrame:NSMakeRect(initW - 5.0, 0, 5.0, initH)];
-    [splitterView setWantsLayer:YES];
+    splitterView = [[MiuSplitterView alloc] initWithFrame:NSMakeRect(initW - 3.0, 0, 4.0, initH)];
     splitterView.editorView = self;
     [splitterView setHidden:YES];
     [container addSubview:splitterView];
+    [self updatePreviewBackground];
 }
 
 - (void)layoutSplitViews {
@@ -409,12 +715,12 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
     } else {
         [self ensurePreviewViewsCreated];
         [self updatePreviewBackground];
-        CGFloat splitW = 5.0;
+        CGFloat splitLineW = 1.0;
         CGFloat leftW = std::floor(cb.size.width * editor->previewSplitRatio);
-        CGFloat rightW = std::max((CGFloat)10.0, cb.size.width - leftW - splitW);
+        CGFloat rightW = std::max((CGFloat)10.0, cb.size.width - leftW - splitLineW);
         [self setFrame:NSMakeRect(0, 0, leftW, availH)];
-        [splitterView setFrame:NSMakeRect(leftW, 0, splitW, availH)];
-        [previewWebView setFrame:NSMakeRect(leftW + splitW, 0, rightW, availH)];
+        [splitterView setFrame:NSMakeRect(leftW - 3.0, 0, 4.0, availH)];
+        [previewWebView setFrame:NSMakeRect(leftW + splitLineW, 0, rightW, availH)];
         [splitterView setHidden:NO];
         [previewWebView setHidden:NO];
         [splitterView setNeedsDisplay:YES];
@@ -517,12 +823,13 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 - (BOOL)acceptsFirstResponder { return YES; }
 - (BOOL)becomeFirstResponder { return YES; }
 - (BOOL)isFlipped { return YES; }
+- (BOOL)isOpaque { return NO; }
 
 - (void)viewDidMoveToWindow {
     if (![self window]) return;
     NSDictionary *infoDict = [[NSBundle mainBundle] infoDictionary];
     NSString *appVersion = infoDict[@"CFBundleShortVersionString"];
-    if (!appVersion) appVersion = @"1.0.44";
+    if (!appVersion) appVersion = @"1.0.48";
     NSString *versionString = [NSString stringWithFormat:@"miu v%@", appVersion];
     editor->appVersionStr = UTF8ToW([versionString UTF8String]);
     NSString *localizedHelp = NSLocalizedString(@"HelpText", @"ヘルプのショートカット一覧");
@@ -532,6 +839,7 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
     editor->isDarkMode = isDark;
     editor->updateThemeColors();
     [self applySystemHighlightColor];
+    [self updatePreviewBackground];
     [self layoutSplitViews];
     [self updateScrollers];
     [[self window] makeFirstResponder:self];
@@ -547,12 +855,17 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
             [self applySystemHighlightColor];
             [self updatePreviewBackground];
             if (splitterView) [splitterView setNeedsDisplay:YES];
+            if (editor->showPreview) {
+                editor->previewInitialLoaded = false;
+                [self updatePreviewPane];
+            }
             [self setNeedsDisplay:YES];
         }
     }
 }
 
 - (void)drawRect:(NSRect)r {
+    NSRectClip([self bounds]);
     if (editor) {
         BOOL isDark = [[self.effectiveAppearance bestMatchFromAppearancesWithNames:@[NSAppearanceNameAqua, NSAppearanceNameDarkAqua]] isEqualToString:NSAppearanceNameDarkAqua];
         if (editor->isDarkMode != (bool)isDark) {
@@ -631,7 +944,7 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 
 - (void)updateScrollers {
     NSRect b = [self bounds];
-    CGFloat sw = [NSScroller scrollerWidthForControlSize:NSControlSizeRegular scrollerStyle:NSScrollerStyleLegacy];
+    CGFloat sw = 14.0;
     ScrollBarLayout L = editor->getScrollBarLayout((float)b.size.width, (float)b.size.height);
     bool needsV = L.needV;
     bool needsH = L.needH;
@@ -679,10 +992,12 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
         [hScroller setEnabled:NO];
         editor->hScrollPos = 0;
     }
+    [vScroller setNeedsDisplay:YES];
+    [hScroller setNeedsDisplay:YES];
     [self setNeedsDisplay:YES];
 }
 
-- (void)scrollAction:(NSScroller*)s {
+- (void)scrollAction:(MiuScroller*)s {
     NSRect b = [self bounds];
     ScrollBarLayout L = editor->getScrollBarLayout((float)b.size.width, (float)b.size.height);
     if (s == vScroller) {
@@ -1168,10 +1483,8 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
             } else {
                 int li = editor->getLineIdx(c.head);
                 size_t nextLineStart = (li + 1 < (int)editor->lineStarts.size()) ? editor->lineStarts[li + 1] : editor->pt.length();
-                if (nextLineStart > editor->lineStarts[li] && editor->pt.charAt(nextLineStart - 1) == '\n') {
-                    nextLineStart--;
-                    if (nextLineStart > editor->lineStarts[li] && editor->pt.charAt(nextLineStart - 1) == '\r') nextLineStart--;
-                }
+                if (nextLineStart > editor->lineStarts[li] && editor->pt.charAt(nextLineStart - 1) == '\n') nextLineStart--;
+                if (nextLineStart > editor->lineStarts[li] && editor->pt.charAt(nextLineStart - 1) == '\r') nextLineStart--;
                 c.head = nextLineStart;
             }
             c.desiredX = editor->getXFromPos(c.head);
@@ -1295,7 +1608,7 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
                     if (cmd) {
                         c.head = lineStart;
                     } else if (opt) {
-                        if (p == lineStart && p > 0) p--;
+                        if (p == lineStart && p > 0) p = editor->moveCaretVisual(p, false);
                         else {
                             while (p > lineStart && !editor->isWordChar(editor->pt.charAt(p - 1))) p--;
                             while (p > lineStart && editor->isWordChar(editor->pt.charAt(p - 1))) p--;
@@ -1404,9 +1717,22 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 
 - (void)insertText:(id)s replacementRange:(NSRange)r {
     NSString* t = [s isKindOfClass:[NSAttributedString class]] ? [s string] : s;
-    if ([t isEqualToString:@"\r"] || [t isEqualToString:@"\n"]) {
+    if ([t isEqualToString:@"\r"] || [t isEqualToString:@"\n"] || [t isEqualToString:@"\r\n"]) {
         editor->insertNewlineWithAutoIndent();
     } else {
+        std::string raw = [t UTF8String] ? [t UTF8String] : "";
+        std::string norm;
+        norm.reserve(raw.size());
+        for (size_t i = 0; i < raw.size(); ++i) {
+            if (raw[i] == '\r') {
+                if (i + 1 < raw.size() && raw[i + 1] == '\n') i++;
+                norm += editor->newlineStr;
+            } else if (raw[i] == '\n') {
+                norm += editor->newlineStr;
+            } else {
+                norm += raw[i];
+            }
+        }
         bool usePadding = false;
         for (const auto& c : editor->cursors) {
             if (c.isVirtual) {
@@ -1415,9 +1741,9 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
             }
         }
         if (usePadding) {
-            editor->insertAtCursorsWithPadding([t UTF8String]);
+            editor->insertAtCursorsWithPadding(norm);
         } else {
-            editor->insertAtCursors([t UTF8String]);
+            editor->insertAtCursors(norm);
         }
     }
     editor->imeComp = "";
@@ -1426,6 +1752,7 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 
 - (void)setMarkedText:(id)s selectedRange:(NSRange)sr replacementRange:(NSRange)rr {
     editor->imeComp = [([s isKindOfClass:[NSAttributedString class]] ? [s string] : s) UTF8String];
+    if (!editor->imeComp.empty()) editor->ensureCaretVisible();
     [self setNeedsDisplay:YES];
 }
 - (void)unmarkText { editor->imeComp = ""; [self setNeedsDisplay:YES]; }
@@ -1522,14 +1849,16 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
 - (void)createWindowWithPath:(const char*)path {
     NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskFullSizeContentView;
     CustomWindow *win = [[CustomWindow alloc] initWithContentRect:NSMakeRect(0, 0, 860, 620) styleMask:style backing:NSBackingStoreBuffered defer:NO];
+    [win setReleasedWhenClosed:NO];
     [win setTitlebarAppearsTransparent:YES];
     [win setTitleVisibility:NSWindowTitleVisible];
     [win setTitlebarSeparatorStyle:NSTitlebarSeparatorStyleNone];
-    NSVisualEffectView *visualEffectView = [[NSVisualEffectView alloc] initWithFrame:win.contentView.bounds];
+    MiuMacWorkspaceView *visualEffectView = [[MiuMacWorkspaceView alloc] initWithFrame:win.contentView.bounds];
     visualEffectView.material = NSVisualEffectMaterialSidebar;
     visualEffectView.blendingMode = NSVisualEffectBlendingModeBehindWindow;
     visualEffectView.state = NSVisualEffectStateFollowsWindowActiveState;
     visualEffectView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+    if (@available(macOS 14.0, *)) visualEffectView.clipsToBounds = YES;
     [win setContentView:visualEffectView];
 
     CGFloat titleBarHeight = 28.0;
@@ -1537,9 +1866,12 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
     contentRect.origin.y = 0;
     contentRect.size.height -= titleBarHeight;
     EditorView *v = [[EditorView alloc] initWithFrame:contentRect];
+    if (@available(macOS 14.0, *)) v.clipsToBounds = YES;
     [v setWantsLayer:YES];
+    v.layer.masksToBounds = YES;
     v.layer.backgroundColor = [NSColor clearColor].CGColor;
     v.layer.opaque = NO;
+    visualEffectView.editorView = v;
 
     __weak AppDelegate *weakDelegate = self;
     v->editor->cbUpdateRecentMenu = [weakDelegate]() {
@@ -1554,6 +1886,7 @@ static NSString *const kMiuLineSelectionType = @"jp.hack.miu.lineselection";
         v->editor->showHelpPopup = true;
     }
     [visualEffectView addSubview:v];
+    [v updatePreviewBackground];
     [v layoutSplitViews];
 
     [win center];

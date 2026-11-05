@@ -1,15 +1,12 @@
 name: App Store Metadata Sync
 
 on:
-  push:
-    branches: [ master, main ]
-    paths:
-      - 'scripts/appstore_metadata_sync.py'
-      - 'scripts/appstore_screenshots_sync.py'
-      - 'macOS/store_assets/**'
-      - 'macOS/APPSTORE_METADATA.md'
-      - '.github/workflows/appstore-metadata.yml'
   workflow_dispatch:
+    inputs:
+      sync_screenshots:
+        description: "Also re-render and upload screenshots"
+        required: false
+        default: "false"
 
 jobs:
   sync-metadata:
@@ -19,6 +16,7 @@ jobs:
       APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
       APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
       APPSTORE_PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+      SYNC_SCREENSHOTS: ${{ github.event.inputs.sync_screenshots }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,9 +25,7 @@ jobs:
         if: env.APPSTORE_ISSUER_ID != '' && env.APPSTORE_KEY_ID != '' && env.APPSTORE_PRIVATE_KEY != ''
         run: |
           pip3 install --quiet --break-system-packages pyjwt cryptography requests pillow numpy || pip3 install --quiet pyjwt cryptography requests pillow numpy
-          python3 scripts/appstore_metadata_sync.py
-          if git diff-tree --no-commit-id --name-only -r HEAD | grep -E '^(scripts/appstore_screenshots_sync\.py|macOS/store_assets/)'; then
+          python3 scripts/appstore_metadata_sync.py --ios-only
+          if [ "$SYNC_SCREENSHOTS" = "true" ]; then
             python3 scripts/appstore_screenshots_sync.py --out-dir /tmp/asc_screenshots
-          else
-            echo "Screenshots unchanged in this commit; skipping screenshot re-upload."
           fi

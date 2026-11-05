@@ -34,15 +34,15 @@ METADATA_10_LANGS = {
             "Text Editor",
             "UTF-8"
         ],
-        "releaseNotes": """miu v1.0.44 更新日誌
-🎨 新增 25 種語言語法高亮（共支援 49 大類、120+ 副檔名）& 修復全形字元行號對齊偏差與水平捲軸問題
+        "releaseNotes": """miu v1.0.48 更新日誌
+🔍 修復全形與多語言字元的正規表示式尋找取代問題及捲動游標顯示
 
-・新增 25 種程式語言與設定檔語法高亮及 Ctrl+/ 註解切換：
-  新增 Dart、R、Zig、Scala、Perl、VB/VBA、F#、Julia、Haskell、Elixir、Dockerfile、Terraform/HCL、TOML/.env、GraphQL、Protobuf、CMake、Makefile、登錄檔（.reg）、著色器（HLSL/GLSL/WGSL）、組合語言、Verilog/SystemVerilog、VHDL、Diff/Patch 與紀錄檔（.log），總計支援 49 大類、120 餘種副檔名。
-・修復輸入繁體中文/日文等全形字元時行號高度輕微偏移的問題：
-  採用 DirectWrite 統一行距與基線機制，確保包含全形字元或表情符號的行與行號像素級精準對齊，且零效能損耗。
-・水平捲軸與編輯引擎精度最佳化：
-  修復新建檔案按 Enter 換行或輸入全形字元時意外出現水平捲軸的問題，支援刪減長行後立即隱藏水平捲軸，並改進末行複製（Alt+Shift+Down）與復原/重做狀態一致性。""",
+・完善中文、日文、韓文及全形字元的正規表示式尋找與取代：
+  修復了使用正規表示式「.」、字元範圍（如 [一-龥]）或量詞取代全形字元時，1 個字元被重複取代多次的問題，現在所有多語言字元與表情符號均按單一字元精準比對與取代。
+・最佳化捲動時的游標顯示：
+  修復了當游標所在行捲出畫面可視區域時，可視區域第一行行首仍會顯示游標的問題。
+・高速編輯、全部取代與即時預覽：
+  大檔案編輯、大批量「全部取代」以及 Markdown / LaTeX 數學公式 / Mermaid 圖表即時預覽保持流暢高速。""",
         "image_captions": [
             "淺色模式下的多功能文字編輯",
             "深色模式下的代碼語法高亮",
@@ -81,15 +81,14 @@ Vom schnellen Notieren bis zum Durchsuchen und Bearbeiten riesiger Protokolldate
             "Leicht",
             "Code Editor"
         ],
-        "releaseNotes": """miu v1.0.44 Versionshinweise
-🎨 25 neue Sprachen für Syntaxhervorhebung (49 Kategorien / 120+ Dateiendungen) + CJK-Zeilennummernausrichtung & Korrekturen der horizontalen Bildlaufleiste
+        "releaseNotes": """miu v1.0.48 Versionshinweise
+🔍 Präzise Regex-Suche/Ersetzung für mehrsprachige Zeichen & Korrektur der Cursoranzeige
 
-- 25 neue Sprachen für Syntaxhervorhebung & Kommentar-Umschaltung (Strg+/):
-  Erweitert auf 49 Kategorien (über 120 Dateiendungen), darunter Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registry (.reg), Shader (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch und Log-Dateien (.log).
-- Pixelgenaue Zeilennummernausrichtung bei CJK-/Vollbreitenzeichen:
-  Einheitlicher DirectWrite-Zeilenabstand sorgt dafür, dass Zeilen mit Vollbreitenzeichen oder Emojis exakt mit den Zeilennummern übereinstimmen.
-- Präzise horizontale Bildlaufleiste & Editor-Verbesserungen:
-  Behebung einer unerwünschten horizontalen Bildlaufleiste nach Zeilenumbruch in neuen Dateien, sofortiges Ausblenden beim Kürzen langer Zeilen sowie Verbesserungen beim Zeilenduplizieren (Alt+Umschalt+Ab) und Rückgängig/Wiederholen.""",
+- Präzise reguläre Ausdrücke für CJK-, Vollbreiten- und Unicode-Zeichen:
+  Ein Problem wurde behoben, bei dem „.“ oder Zeichenbereiche in regulären Ausdrücken mehrbytige UTF-8-Zeichen mehrfach ersetzten. Japanische, koreanische, chinesische Zeichen, Umlaute und Emojis werden nun exakt zeichenweise erkannt und ersetzt.
+- Verbesserte Cursoranzeige beim Scrollen:
+  Wenn die Zeile mit dem Cursor aus dem sichtbaren Bereich gescrollt wird, wird der Cursor nicht mehr fälschlich am Anfang der obersten sichtbaren Zeile eingeblendet.
+- Schnelles Bearbeiten, „Alle ersetzen“ & Live-Vorschau für Markdown, LaTeX und Mermaid.""",
         "image_captions": [
             "Heller Modus mit Markdown- und Code-Bearbeitung",
             "Dunkler Modus mit lebendiger Syntaxhervorhebung",
@@ -128,15 +127,14 @@ Idéal pour la prise de notes instantanée, l'analyse de fichiers journaux volum
             "ultra rapide",
             "texte"
         ],
-        "releaseNotes": """Notes de version miu v1.0.44
-🎨 Ajout de 25 langages de coloration syntaxique (49 catégories / 120+ extensions) + Alignement des numéros de ligne CJK et correctifs de la barre de défilement horizontale
+        "releaseNotes": """Notes de version miu v1.0.48
+🔍 Précision accrue des expressions régulières multilingues et correction de l’affichage du curseur
 
-- 25 nouveaux langages de coloration syntaxique et bascule de commentaires (Ctrl+/) :
-  Extension à 49 catégories (plus de 120 extensions), incluant Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registre Windows (.reg), Shaders (HLSL/GLSL/WGSL), Assembleur, Verilog/SystemVerilog, VHDL, Diff/Patch et fichiers journaux (.log).
-- Alignement parfait des numéros de ligne pour les caractères pleine chasse / CJK :
-  Espacement de ligne DirectWrite uniforme garantissant un alignement au pixel près sans perte de performance.
-- Précision de la barre de défilement horizontale et du moteur d'édition :
-  Correction de l'apparition inopinée de la barre horizontale après un saut de ligne sur un nouveau fichier, masquage immédiat lors du raccourcissement des lignes longues et amélioration de la duplication de ligne (Alt+Maj+Bas) et d'Annuler/Rétablir.""",
+- Expressions régulières précises pour les caractères pleine chasse et Unicode :
+  Correction d’un problème où le motif « . » ou les plages de caractères remplaçaient plusieurs fois un même caractère UTF-8 multi-octets (japonais, coréen, chinois, caractères accentués et émojis). Chaque caractère est désormais traité avec précision.
+- Affichage du curseur lors du défilement :
+  Le curseur ne s’affiche plus au début de la première ligne visible lorsqu’il se trouve hors de l’écran.
+- Édition, « Tout remplacer » et aperçu en direct Markdown, LaTeX et Mermaid ultra-rapides.""",
         "image_captions": [
             "Mode clair avec rendu précis des polices et indentation",
             "Mode sombre élégant avec coloration syntaxique",
@@ -175,15 +173,14 @@ Diseñado para abrirse en una fracción de segundo, es perfecto tanto para notas
             "rapido",
             "texto"
         ],
-        "releaseNotes": """Notas de la versión miu v1.0.44
-🎨 25 nuevos lenguajes de resaltado de sintaxis (49 categorías / 120+ extensiones) + Alineación de números de línea CJK y mejoras en la barra de desplazamiento horizontal
+        "releaseNotes": """Notas de la versión miu v1.0.48
+🔍 Búsqueda y reemplazo Regex precisos para caracteres multilingües y mejora del cursor al desplazar
 
-- 25 nuevos lenguajes de resaltado de sintaxis y alternancia de comentarios (Ctrl+/):
-  Ampliado a 49 categorías (más de 120 extensiones), incluyendo Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registro de Windows (.reg), Shaders (HLSL/GLSL/WGSL), Ensamblador, Verilog/SystemVerilog, VHDL, Diff/Patch y archivos de registro (.log).
-- Alineación precisa de números de línea con caracteres de ancho completo / CJK:
-  Interlineado uniforme en DirectWrite para mantener una alineación perfecta al píxel sin impacto en el rendimiento.
-- Precisión de la barra de desplazamiento horizontal y motor de edición:
-  Corregida la aparición prematura de la barra horizontal al pulsar Enter en un archivo nuevo, ocultación inmediata al acortar líneas largas y mejoras en duplicación de líneas (Alt+Mayús+Abajo) y Deshacer/Rehacer.""",
+- Expresiones regulares precisas para caracteres de ancho completo y Unicode:
+  Se corrigió un problema por el cual «.» o los rangos de caracteres en expresiones regulares reemplazaban varias veces un mismo carácter multibyte (japonés, coreano, chino, caracteres acentuados y emojis). Ahora cada carácter se busca y reemplaza exactamente una vez.
+- Visualización mejorada del cursor al desplazar:
+  El cursor ya no aparece al inicio de la primera línea visible cuando la línea real del cursor queda fuera de la pantalla.
+- Edición rápida, «Reemplazar todo» instantáneo y vista previa en vivo para Markdown, LaTeX y Mermaid.""",
         "image_captions": [
             "Modo claro con edición de texto y código",
             "Modo oscuro con resaltado de sintaxis",
@@ -222,15 +219,14 @@ Projetado para inicializar em milissegundos, é a escolha perfeita para anotaç�
             "programacao",
             "texto"
         ],
-        "releaseNotes": """Notas de lançamento do miu v1.0.44
-🎨 25 novas linguagens com realce de sintaxe (49 categorias / 120+ extensões) + Alinhamento de números de linha CJK e correções na barra de rolagem horizontal
+        "releaseNotes": """Notas de lançamento do miu v1.0.48
+🔍 Busca e substituição Regex precisas para caracteres multilíngues e ajuste do cursor na rolagem
 
-- 25 novas linguagens com realce de sintaxe e alternância de comentários (Ctrl+/):
-  Expandido para 49 categorias (mais de 120 extensões), incluindo Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registro do Windows (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch e arquivos de log (.log).
-- Alinhamento perfeito dos números de linha para caracteres de largura total / CJK:
-  Espaçamento de linha DirectWrite uniforme garantindo alinhamento preciso sem perda de desempenho.
-- Precisão da barra de rolagem horizontal e melhorias de edição:
-  Corrigida a exibição indevida da barra de rolagem horizontal ao pressionar Enter em um novo arquivo, ocultação imediata ao encurtar linhas longas e melhorias na duplicação de linhas (Alt+Shift+Baixo) e Desfazer/Refazer.""",
+- Expressões regulares precisas para caracteres de largura total e Unicode:
+  Corrigido um problema em que «.» ou intervalos de caracteres em expressões regulares substituíam um único caractere multibyte várias vezes (japonês, coreano, chinês, caracteres acentuados e emojis).
+- Exibição aprimorada do cursor ao rolar a página:
+  O cursor não é mais exibido no início da primeira linha visível quando a posição real do cursor sai da tela.
+- Edição rápida, «Substituir tudo» instantâneo e pré-visualização ao vivo para Markdown, LaTeX e Mermaid.""",
         "image_captions": [
             "Modo claro com edição limpa e visualização nítida",
             "Modo escuro com realce de sintaxe colorido",
@@ -269,15 +265,14 @@ Projetado para inicializar em milissegundos, é a escolha perfeita para anotaç�
             "легкий редактор",
             "текст"
         ],
-        "releaseNotes": """Примечания к выпуску miu v1.0.44
-🎨 Добавлено 25 языков подсветки синтаксиса (всего 49 категорий / 120+ расширений) + выравнивание номеров строк CJK и исправления горизонтальной прокрутки
+        "releaseNotes": """Примечания к выпуску miu v1.0.48
+🔍 Точный поиск и замена по регулярным выражениям для многобайтовых символов и исправление курсора
 
-- 25 новых языков подсветки синтаксиса и переключение комментариев (Ctrl+/):
-  Расширено до 49 категорий (более 120 расширений), включая Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, файлы реестра (.reg), шейдеры (HLSL/GLSL/WGSL), ассемблер, Verilog/SystemVerilog, VHDL, Diff/Patch и лог-файлы (.log).
-- Идеальное выравнивание номеров строк для полноширинных символов и эмодзи:
-  Равномерный межстрочный интервал DirectWrite обеспечивает попиксельное совпадение высоты строк и номеров без потери скорости.
-- Точность горизонтальной полосы прокрутки и улучшения редактора:
-  Исправлено ложное появление горизонтальной прокрутки после нажатия Enter в новом файле, мгновенное скрытие полосы при сокращении длинной строки, а также улучшено дублирование строк (Alt+Shift+Down) и отмена/повтор.""",
+- Точная работа регулярных выражений с полноширинными и многоязычными символами:
+  Исправлена ошибка, из-за которой шаблон «.» и диапазоны символов в регулярных выражениях заменяли один символ UTF-8 несколько раз. Теперь символы японского, корейского, китайского, русского языков и эмодзи обрабатываются строго по одному символу.
+- Улучшено отображение курсора при прокрутке:
+  Курсор больше не отображается в начале верхней видимой строки, когда строка с курсором прокручена за пределы экрана.
+- Быстрое редактирование, мгновенная «Заменить все» и живой предпросмотр Markdown, LaTeX и Mermaid.""",
         "image_captions": [
             "Светлая тема оформления с удобной нумерацией строк",
             "Темная тема с яркой подсветкой синтаксиса",
@@ -316,15 +311,14 @@ Progettato per avviarsi in un istante, è ideale sia per prendere note veloci, s
             "codice",
             "testo"
         ],
-        "releaseNotes": """Note di rilascio di miu v1.0.44
-🎨 Aggiunti 25 linguaggi di evidenziazione sintassi (49 categorie / 120+ estensioni) + Allineamento numeri di riga CJK e correzioni barra di scorrimento orizzontale
+        "releaseNotes": """Note di rilascio di miu v1.0.48
+🔍 Ricerca e sostituzione Regex precise per caratteri multilingua e correzione del cursore
 
-- 25 nuovi linguaggi con evidenziazione della sintassi e commenti rapidi (Ctrl+/):
-  Esteso a 49 categorie (oltre 120 estensioni), tra cui Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registro di Windows (.reg), Shader (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch e file di log (.log).
-- Allineamento perfetto dei numeri di riga con caratteri a larghezza intera / CJK:
-  Interlinea uniforme DirectWrite per un allineamento preciso al pixel senza penalità sulle prestazioni.
-- Precisione della barra di scorrimento orizzontale e miglioramenti di modifica:
-  Risolta la comparsa prematura della barra orizzontale premendo Invio in un nuovo file, nascondimento immediato quando si accorciano righe lunghe e perfezionamenti a duplicazione riga (Alt+Maiusc+Giù) e Annulla/Ripeti.""",
+- Espressioni regolari precise per caratteri a larghezza intera e Unicode:
+  Risolto un problema per cui «.» o gli intervalli di caratteri nelle espressioni regolari sostituivano più volte un singolo carattere multi-byte (giapponese, coreano, cinese, caratteri accentati ed emoji).
+- Visualizzazione migliorata del cursore durante lo scorrimento:
+  Il cursore non appare più all’inizio della prima riga visibile quando la riga effettiva del cursore scorre fuori dallo schermo.
+- Modifica rapida, «Sostituisci tutto» istantaneo e anteprima live per Markdown, LaTeX e Mermaid.""",
         "image_captions": [
             "Modalità chiara con formattazione e testo nitido",
             "Modalità scura elegante con evidenziazione del codice",
@@ -363,15 +357,14 @@ Uruchamia się w ułamku sekundy i sprawdza się idealnie zarówno do szybkich n
             "kod",
             "tekst"
         ],
-        "releaseNotes": """Informacje o wersji miu v1.0.44
-🎨 Dodano 25 języków kolorowania składni (49 kategorii / 120+ rozszerzeń) + Wyrównanie numerów wierszy CJK i poprawki poziomego paska przewijania
+        "releaseNotes": """Informacje o wersji miu v1.0.48
+🔍 Precyzyjne wyrażenia regularne dla znaków wielobajtowych oraz poprawka wyświetlania kursora
 
-- 25 nowych języków kolorowania składni i przełączania komentarzy (Ctrl+/):
-  Rozszerzono do 49 kategorii (ponad 120 rozszerzeń), w tym Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, pliki rejestru (.reg), shadery (HLSL/GLSL/WGSL), Assembler, Verilog/SystemVerilog, VHDL, Diff/Patch oraz pliki dziennika (.log).
-- Idealne wyrównanie numerów wierszy dla znaków pełnej szerokości / CJK:
-  Jednolity odstęp między wierszami DirectWrite zapewnia dokładność co do piksela bez utraty wydajności.
-- Precyzja poziomego paska przewijania i silnika edycji:
-  Naprawiono przedwczesne pojawianie się poziomego paska przewijania po naciśnięciu Enter w nowym pliku, natychmiastowe ukrywanie po skróceniu długiego wiersza oraz ulepszono duplikowanie wierszy (Alt+Shift+Dół) i Cofnij/Ponów.""",
+- Dokładne dopasowywanie wyrażeń regularnych dla znaków pełnej szerokości i Unicode:
+  Naprawiono błąd, przez który wzorzec „.” lub zakresy znaków w wyrażeniach regularnych zamieniały pojedynczy znak wielobajtowy (japoński, koreański, chiński, polskie znaki diakrytyczne i emoji) wielokrotnie.
+- Poprawione wyświetlanie kursora podczas przewijania:
+  Kursor nie jest już wyświetlany na początku pierwszego widocznego wiersza, gdy wiersz z kursorem znajduje się poza ekranem.
+- Szybka edycja, błyskawiczne „Zamień wszystko” i podgląd na żywo dla Markdown, LaTeX oraz Mermaid.""",
         "image_captions": [
             "Motyw jasny z przejrzystym widokiem dokumentu",
             "Motyw ciemny z kolorowaniem składni kodu",
@@ -410,15 +403,14 @@ Ontworpen om direct binnen een fractie van een seconde op te starten; perfect vo
             "code editor",
             "tekst"
         ],
-        "releaseNotes": """Releaseopmerkingen miu v1.0.44
-🎨 25 nieuwe talen voor syntaxismarkering (49 categorieën / 120+ extensies) + CJK-regelnummeruitlijning & verbeteringen aan de horizontale schuifbalk
+        "releaseNotes": """Releaseopmerkingen miu v1.0.48
+🔍 Nauwkeurige regex-zoek/vervangfunctie voor meertalige tekens en verbeterde cursorweergave
 
-- 25 nieuwe talen voor syntaxismarkering en commentaar wisselen (Ctrl+/):
-  Uitgebreid naar 49 categorieën (meer dan 120 extensies), waaronder Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows-register (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch en logbestanden (.log).
-- Pixelperfecte uitlijning van regelnummers bij CJK- en volledige-breedtetekens:
-  Uniforme DirectWrite-regelafstand zorgt voor exacte uitlijning zonder snelheidsverlies.
-- Nauwkeurigheid van horizontale schuifbalk & tekstbewerking:
-  Onterecht verschijnen van de horizontale schuifbalk na Enter in een nieuw bestand verholpen, direct verbergen bij het inkorten van lange regels en verbeteringen in regels dupliceren (Alt+Shift+Omlaag) en Ongedaan maken/Opnieuw.""",
+- Nauwkeurige reguliere expressies voor volledige-breedte- en Unicode-tekens:
+  Probleem opgelost waarbij ‘.’ of tekenbereiken in reguliere expressies één multi-byte UTF-8-teken meerdere keren vervingen (zoals Japans, Koreaans, Chinees, tekens met accenten en emoji’s).
+- Verbeterde cursorweergave tijdens scrollen:
+  De cursor wordt niet langer aan het begin van de bovenste zichtbare regel getoond wanneer de daadwerkelijke cursorregel buiten beeld is gescrold.
+- Snel bewerken, direct ‘Alles vervangen’ en vloeiende live-weergave voor Markdown, LaTeX en Mermaid.""",
         "image_captions": [
             "Lichte modus met overzichtelijke documentweergave",
             "Donkere modus met kleurrijke syntaxisaccentuering",
@@ -457,15 +449,14 @@ Göz açıp kapayıncaya kadar açılan yapısıyla hem hızlı notlar almak, he
             "kod",
             "metin"
         ],
-        "releaseNotes": """miu v1.0.44 Sürüm Notları
-🎨 25 Yeni Sözdizimi Vurgulama Dili (49 Kategori / 120+ Uzantı) + CJK Satır Numarası Hizalama ve Yatay Kaydırma Çubuğu Düzeltmeleri
+        "releaseNotes": """miu v1.0.48 Sürüm Notları
+🔍 Çok Dilli Karakterler İçin Hassas Regex Arama/Değiştirme ve Kaydırma İmleci Düzeltmesi
 
-- 25 Yeni Sözdizimi Vurgulama Dili ve Ctrl+/ Yorum Satırı Geçişi:
-  Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Kayıt Defteri (.reg), Shader (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch ve günlük dosyaları (.log) dahil olmak üzere 49 kategoriye (120'den fazla uzantı) genişletildi.
-- Tam Genişlikli / CJK Karakterlerde Kusursuz Satır Numarası Hizalaması:
-  Tekdüze DirectWrite satır aralığı sayesinde tam genişlikli karakterler veya emojiler içeren satırlar, satır numaralarıyla piksel hassasiyetinde hizalanır.
-- Yatay Kaydırma Çubuğu ve Düzenleme Motoru İyileştirmeleri:
-  Yeni dosyada Enter'a basıldığında yatay kaydırma çubuğunun erken görünmesi sorunu giderildi, uzun satırlar kısaltıldığında anında gizlenmesi sağlandı ve satır çoğaltma (Alt+Shift+Aşağı) ile Geri Al/Yinele kararlılığı artırıldı.""",
+- Tam Genişlikli ve Çok Dilli Karakterlerde Doğru Regex Eşleşmesi:
+  Düzenli ifadelerde (Regex) "." veya karakter aralıkları kullanıldığında tek bir UTF-8 karakterinin birden fazla kez değiştirilmesine neden olan sorun giderildi (Japonca, Korece, Çince, Türkçe karakterler ve emojiler).
+- Kaydırma Sırasında İmleç Görünümü İyileştirildi:
+  İmlecin bulunduğu satır ekran dışına kaydırıldığında en üstteki görünür satırın başında imleç görünmesi sorunu düzeltildi.
+- Hızlı düzenleme, anında "Tümünü Değiştir" ve akıcı Markdown, LaTeX ve Mermaid Canlı Önizlemesi.""",
         "image_captions": [
             "Açık temada temiz ve akıcı metin düzenleme",
             "Koyu temada renkli kod sözdizimi vurgulama",
@@ -503,15 +494,14 @@ Từ việc ghi chú tức thì, duyệt qua các tệp nhật ký (log) khổng
             "nhanh",
             "văn bản"
         ],
-        "releaseNotes": """Ghi chú phát hành miu v1.0.44
-🎨 Thêm 25 ngôn ngữ tô sáng cú pháp (49 danh mục / 120+ phần mở rộng) + Căn chỉnh số dòng CJK & sửa lỗi thanh cuộn ngang
+        "releaseNotes": """Ghi chú phát hành miu v1.0.48
+🔍 Cải thiện độ chính xác Tìm kiếm/Thay thế Regex đa ngôn ngữ & sửa hiển thị con trỏ khi cuộn
 
-- Thêm 25 ngôn ngữ tô sáng cú pháp và bật/tắt ghi chú (Ctrl+/):
-  Mở rộng lên 49 danh mục (hơn 120 phần mở rộng tệp), bao gồm Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch và tệp nhật ký (.log).
-- Căn chỉnh hoàn hảo số dòng khi nhập ký tự全角 / CJK:
-  Áp dụng khoảng cách dòng đồng nhất của DirectWrite giúp số dòng và văn bản khớp chính xác từng pixel mà không giảm hiệu năng.
-- Tối ưu thanh cuộn ngang & bộ máy soạn thảo:
-  Khắc phục lỗi hiện thanh cuộn ngang ngay sau khi nhấn Enter ở tệp mới, tự động ẩn ngay khi xóa ngắn dòng dài, đồng thời cải thiện nhân bản dòng (Alt+Shift+Down) và Hoàn tác/Làm lại.""",
+- Khớp biểu thức chính quy (Regex) chính xác cho ký tự全角 và đa ngôn ngữ:
+  Đã khắc phục lỗi khi dùng "." hoặc phạm vi ký tự trong Regex khiến 1 ký tự UTF-8 nhiều byte (tiếng Việt, Nhật, Hàn, Trung và emoji) bị thay thế lặp lại nhiều lần.
+- Cải thiện hiển thị con trỏ khi cuộn trang:
+  Đã sửa lỗi con trỏ hiển thị ở đầu dòng đầu tiên đang thấy khi dòng chứa con trỏ thực tế đã cuộn ra ngoài màn hình.
+- Chỉnh sửa tốc độ cao, "Thay thế tất cả" tức thì và Xem trước trực tiếp Markdown, LaTeX, Mermaid mượt mà.""",
         "image_captions": [
             "Chế độ Sáng với định dạng và căn lề sắc nét",
             "Chế độ Tối với tô màu cú pháp mã nguồn",
@@ -550,15 +540,14 @@ Từ việc ghi chú tức thì, duyệt qua các tệp nhật ký (log) khổng
             "код",
             "текст"
         ],
-        "releaseNotes": """Примітки до випуску miu v1.0.44
-🎨 Додано 25 мов підсвічування синтаксису (49 категорій / 120+ розширень) + вирівнювання номерів рядків CJK і виправлення горизонтальної прокрутки
+        "releaseNotes": """Примітки до випуску miu v1.0.48
+🔍 Точний пошук і заміна за регулярними виразами для багатобайтових символів і виправлення курсора
 
-- 25 нових мов підсвічування синтаксису та перемикання коментарів (Ctrl+/):
-  Розширено до 49 категорій (понад 120 розширень), включаючи Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, файли реєстру (.reg), шейдери (HLSL/GLSL/WGSL), асемблер, Verilog/SystemVerilog, VHDL, Diff/Patch і лог-файли (.log).
-- Ідеальне вирівнювання номерів рядків для повноширинних символів і емодзі:
-  Рівномірний міжрядковий інтервал DirectWrite забезпечує попіксельний збіг висоти рядків і номерів без втрати швидкодії.
-- Точність горизонтальної смуги прокрутки та покращення редактора:
-  Виправлено передчасну появу горизонтальної прокрутки після натискання Enter у новому файлі, миттєве приховування смуги під час скорочення довгого рядка, а також покращено дублювання рядків (Alt+Shift+Down) і скасування/повтор.""",
+- Точна робота регулярних виразів із повноширинними та багатомовними символами:
+  Виправлено помилку, через яку шаблон «.» або діапазони символів у регулярних виразах замінювали один символ UTF-8 декілька разів (українські, японські, корейські, китайські символи та емодзі).
+- Покращено відображення курсора під час прокручування:
+  Курсор більше не з’являється на початку верхнього видимого рядка, коли рядок із курсором прокручено за межі екрана.
+- Швидке редагування, миттєва «Замінити все» та живий перегляд Markdown, LaTeX і Mermaid.""",
         "image_captions": [
             "Світла тема з чистим відображенням тексту",
             "Темна тема з підсвічуванням синтаксису коду",
@@ -597,15 +586,14 @@ Mulai dari mencatat cepat, memeriksa berkas log raksasa berukuran gigabita, hing
             "kode",
             "teks"
         ],
-        "releaseNotes": """Catatan Rilis miu v1.0.44
-🎨 Tambahan 25 Bahasa Sorotan Sintaks (49 Kategori / 120+ Ekstensi) + Perataan Nomor Baris CJK & Perbaikan Bilah Gulir Horizontal
+        "releaseNotes": """Catatan Rilis miu v1.0.48
+🔍 Pencarian & Penggantian Regex Multibahasa yang Akurat serta Perbaikan Kursor Saat Menggulir
 
-- 25 Bahasa Baru untuk Sorotan Sintaks & Komentar Cepat (Ctrl+/):
-  Diperluas menjadi 49 kategori (120+ ekstensi file), termasuk Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch, dan file log (.log).
-- Perataan Nomor Baris Presisi untuk Karakter Lebar Penuh / CJK:
-  Spasi baris DirectWrite yang seragam memastikan baris dengan karakter CJK atau emoji sejajar sempurna dengan nomor baris tanpa penalti performa.
-- Akurasi Bilah Gulir Horizontal & Mesin Pengeditan:
-  Memperbaiki munculnya bilah gulir horizontal setelah menekan Enter pada file baru, menyembunyikan bilah gulir secara instan saat baris panjang dipendekkan, serta menyempurnakan duplikasi baris (Alt+Shift+Down) dan Undo/Redo.""",
+- Pencocokan Ekspresi Reguler (Regex) yang Akurat untuk Karakter Lebar Penuh & Unicode:
+  Memperbaiki masalah saat menggunakan "." atau rentang karakter dalam Regex yang sebelumnya mengganti satu karakter UTF-8 multibyte (Jepang, Korea, Mandarin, aksen, dan emoji) beberapa kali.
+- Tampilan Kursor Lebih Baik Saat Menggulir:
+  Memperbaiki masalah kursor yang muncul di awal baris teratas yang terlihat saat baris kursor sebenarnya digulir ke luar layar.
+- Pengeditan cepat, "Ganti Semua" instan, dan Pratinjau Langsung Markdown, LaTeX & Mermaid yang mulus.""",
         "image_captions": [
             "Mode Terang dengan tampilan dokumen yang rapi dan bersih",
             "Mode Gelap dengan pewarnaan sintaksis kode yang jelas",
@@ -644,15 +632,14 @@ Spouští se během zlomku sekundy a je ideální pro rychlé poznámky, analýz
             "kód",
             "text"
         ],
-        "releaseNotes": """Poznámky k verzi miu v1.0.44
-🎨 Přidáno 25 jazyků zvýrazňování syntaxe (49 kategorií / 120+ přípon) + Zarovnání čísel řádků CJK a opravy vodorovného posuvníku
+        "releaseNotes": """Poznámky k verzi miu v1.0.48
+🔍 Přesné vyhledávání a nahrazování regulárními výrazy pro vícejazyčné znaky a oprava kurzoru
 
-- 25 nových jazyků zvýrazňování syntaxe a přepínání komentářů (Ctrl+/):
-  Rozšířeno na 49 kategorií (přes 120 přípon), včetně Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, souborů registru (.reg), shaderů (HLSL/GLSL/WGSL), Assembleru, Verilog/SystemVerilog, VHDL, Diff/Patch a log souborů (.log).
-- Přesné zarovnání čísel řádků pro znaky plné šířky / CJK:
-  Jednotné řádkování DirectWrite zajišťuje na pixel přesné zarovnání čísel řádků bez ztráty výkonu.
-- Přesnost vodorovného posuvníku a vylepšení editoru:
-  Opraveno předčasné zobrazení vodorovného posuvníku po stisku Enter v novém souboru, okamžité skrytí při zkrácení dlouhého řádku a vylepšeno duplikování řádků (Alt+Shift+Dolů) i Zpět/Znovu.""",
+- Přesné regulární výrazy pro znaky s plnou šířkou a Unicode:
+  Opraven problém, kdy vzor „.“ nebo rozsahy znaků v regulárních výrazech nahrazovaly jeden vícebajtový znak UTF-8 (české znaky s diakritikou, japonština, korejština, čínština a emoji) vícekrát.
+- Vylepšené zobrazení kurzoru při posouvání:
+  Kurzor se již nezobrazuje na začátku prvního viditelného řádku, pokud je řádek s kurzorem posunut mimo obrazovku.
+- Rychlé úpravy, okamžité „Nahradit vše“ a plynulý živý náhled pro Markdown, LaTeX a Mermaid.""",
         "image_captions": [
             "Světlý režim s čistým a přehledným zobrazením dokumentu",
             "Tmavý režim s barevným zvýrazňováním syntaxe kódu",
@@ -691,15 +678,14 @@ Den startar på ett ögonblick och är perfekt för snabba anteckningar, granskn
             "kodredigerare",
             "text"
         ],
-        "releaseNotes": """Versionsinformation för miu v1.0.44
-🎨 25 nya språk för syntaxmarkering (49 kategorier / 120+ filändelser) + CJK-radnummerjustering och korrigeringar av horisontell rullningslist
+        "releaseNotes": """Versionsinformation för miu v1.0.48
+🔍 Exakt Regex-sökning/ersättning för flerspråkiga tecken samt förbättrad markörvisning vid rullning
 
-- 25 nya språk för syntaxmarkering och kommentarsväxling (Ctrl+/):
-  Utökat till 49 kategorier (över 120 filändelser), inklusive Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows-register (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch och loggfiler (.log).
-- Exakt radnummerjustering för helbreddstecken / CJK:
-  Enhetligt DirectWrite-radavstånd ger exakt justering på pixelnivå utan prestandaförlust.
-- Förbättrad horisontell rullningslist och redigeringsmotor:
-  Åtgärdade att den horisontella rullningslisten visades i förtid efter Enter i en ny fil, omedelbar döljning när långa rader kortas ned samt förbättrad radduplicering (Alt+Skift+Pil ned) och Ångra/Gör om.""",
+- Exakta reguljära uttryck för helbredds- och Unicode-tecken:
+  Åtgärdade ett problem där ”.” eller teckenintervall i reguljära uttryck ersatte ett enskilt flerbytes UTF-8-tecken (japanska, koreanska, kinesiska, å/ä/ö och emojis) flera gånger.
+- Förbättrad markörvisning vid rullning:
+  Markören visas inte längre i början av den översta synliga raden när den faktiska markörraden har rullats utanför skärmen.
+- Snabb redigering, omedelbar ”Ersätt alla” och smidig live-förhandsgranskning för Markdown, LaTeX och Mermaid.""",
         "image_captions": [
             "Ljust läge med ren och tydlig dokumentvy",
             "Mörkt läge med tydlig syntaxmarkering för kod",
@@ -738,15 +724,14 @@ Den startar på ett ögonblick och är perfekt för snabba anteckningar, granskn
             "ความเร็วสูง",
             "ข้อความ"
         ],
-        "releaseNotes": """บันทึกประจำรุ่น miu v1.0.44
-🎨 เพิ่มการเน้นไวยากรณ์ 25 ภาษาใหม่ (รวม 49 หมวดหมู่ / 120+ นามสกุลไฟล์) + แก้ไขการจัดแนวเลขบรรทัด CJK และแถบเลื่อนแนวนอน
+        "releaseNotes": """บันทึกประจำรุ่น miu v1.0.48
+🔍 ปรับปรุงความแม่นยำการค้นหา/แทนที่ด้วย Regex สำหรับอักขระหลายภาษา และแก้ไขการแสดงเคอร์เซอร์ขณะเลื่อนหน้าจอ
 
-- เพิ่มการเน้นไวยากรณ์ 25 ภาษาใหม่และสลับคอมเมนต์ (Ctrl+/):
-  ขยายเป็น 49 หมวดหมู่ (มากกว่า 120 นามสกุลไฟล์) รวมถึง Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch และไฟล์บันทึก (.log)
-- แก้ไขตำแหน่งเลขบรรทัดให้ตรงกันทุกพิกเซลเมื่อพิมพ์อักษรเต็มความกว้าง / CJK:
-  ใช้ระยะห่างบรรทัดแบบสม่ำเสมอของ DirectWrite ทำให้เลขบรรทัดและเนื้อหาตรงกันอย่างแม่นยำโดยไม่ลดความเร็ว
-- ปรับปรุงความแม่นยำของแถบเลื่อนแนวนอนและระบบแก้ไขข้อความ:
-  แก้ไขปัญหาแถบเลื่อนแนวนอนแสดงขึ้นทันทีหลังกด Enter ในไฟล์ใหม่ ซ่อนแถบเลื่อนทันทีเมื่อลบข้อความบรรทัดยาวให้สั้นลง และปรับปรุงการทำซ้ำบรรทัด (Alt+Shift+Down) รวมถึง Undo/Redo""",
+- จับคู่และแทนที่ด้วยนิพจน์ทั่วไป (Regex) อย่างแม่นยำทุกภาษา:
+  แก้ไขปัญหาการใช้ "." หรือช่วงอักขระใน Regex ที่เคยแปลงอักขระ UTF-8 แบบหลายไบต์ (ภาษาไทย ญี่ปุ่น เกาหลี จีน และอิโมจิ) ซ้ำหลายครั้งต่อ 1 ตัวอักษร ให้แทนที่ทีละ 1 ตัวอักษรอย่างถูกต้อง
+- ปรับปรุงการแสดงเคอร์เซอร์เมื่อเลื่อนหน้าจอ:
+  แก้ไขปัญหาเคอร์เซอร์ไปแสดงที่ต้นบรรทัดแรกของหน้าจอเมื่อเลื่อนบรรทัดที่มีเคอร์เซอร์จริงออกไปนอกหน้าจอ
+- แก้ไขข้อความรวดเร็ว "แทนที่ทั้งหมด" ทันใจ พร้อมพรีวิวสด Markdown, LaTeX และ Mermaid""",
         "image_captions": [
             "โหมดสว่างพร้อมการแสดงผลเอกสารที่สะอาดตาและคมชัด",
             "โหมดมืดพร้อมการไฮไลต์สีไวยากรณ์โค้ดอย่างชัดเจน",
@@ -785,15 +770,14 @@ Den startar på ett ögonblick och är perfekt för snabba anteckningar, granskn
             "कोड एडिटर",
             "टेक्स्ट"
         ],
-        "releaseNotes": """miu v1.0.44 रिलीज़ नोट्स
-🎨 25 नई सिंटैक्स हाइलाइटिंग भाषाएँ (कुल 49 श्रेणियाँ / 120+ एक्सटेंशन) + CJK लाइन नंबर संरेखण और क्षैतिज स्क्रॉलबार सुधार
+        "releaseNotes": """miu v1.0.48 रिलीज़ नोट्स
+🔍 बहुभाषी अक्षरों के लिए सटीक रेगेक्स (Regex) खोज/बदलाव और स्क्रॉल करते समय कर्सर सुधार
 
-- 25 नई सिंटैक्स हाइलाइटिंग भाषाएँ और Ctrl+/ कमेंट टॉगल:
-  Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch और लॉग फ़ाइलों (.log) सहित 49 श्रेणियों (120+ फ़ाइल एक्सटेंशन) तक विस्तार।
-- पूर्ण-चौड़ाई / CJK वर्णों के लिए सटीक लाइन नंबर संरेखण:
-  DirectWrite यूनिफ़ॉर्म लाइन स्पेसिंग से पूर्ण-चौड़ाई वाले वर्णों या इमोजी वाली पंक्तियाँ बिना किसी गति हानि के लाइन नंबरों के साथ पिक्सेल-सटीक संरेखित रहती हैं।
-- क्षैतिज स्क्रॉलबार और संपादन इंजन सुधार:
-  नई फ़ाइल में Enter दबाने पर क्षैतिज स्क्रॉलबार दिखने की समस्या हल की गई, लंबी पंक्तियों को छोटा करने पर स्क्रॉलबार तुरंत छिपता है, और पंक्ति डुप्लिकेशन (Alt+Shift+Down) व Undo/Redo को और सटीक बनाया गया।""",
+- पूर्ण-चौड़ाई और बहुभाषी यूनिकोड अक्षरों के लिए सटीक रेगेक्स मिलान:
+  रेगेक्स में "." या अक्षर श्रेणियों का उपयोग करने पर एक मल्टी-बाइट अक्षर (हिंदी, जापानी, कोरियाई, चीनी और इमोजी) के कई बार बदलने की समस्या को ठीक किया गया है।
+- स्क्रॉल करते समय कर्सर दृश्यता में सुधार:
+  कर्सर वाली पंक्ति के स्क्रीन से बाहर स्क्रॉल होने पर सबसे ऊपर दिखने वाली पंक्ति की शुरुआत में कर्सर दिखने की समस्या को ठीक किया गया है।
+- तेज़ संपादन, तुरंत "सभी बदलें" और सहज Markdown, LaTeX व Mermaid लाइव प्रीव्यू।""",
         "image_captions": [
             "साफ़ और स्पष्ट दस्तावेज़ दृश्य के साथ लाइट मोड",
             "कोड सिंटैक्स हाइलाइटिंग के साथ आकर्षक डार्क मोड",
@@ -832,15 +816,14 @@ Pornește instantaneu și este ideal pentru notițe rapide, analizarea fișierel
             "cod",
             "text"
         ],
-        "releaseNotes": """Note de lansare miu v1.0.44
-🎨 25 de limbaje noi pentru evidențierea sintaxei (49 de categorii / 120+ extensii) + Alinierea numerelor de rând CJK și corecții pentru bara de derulare orizontală
+        "releaseNotes": """Note de lansare miu v1.0.48
+🔍 Căutare și înlocuire Regex precise pentru caractere multilingve și afișare îmbunătățită a cursorului
 
-- 25 de limbaje noi cu evidențierea sintaxei și comutare comentarii (Ctrl+/):
-  Extins la 49 de categorii (peste 120 de extensii), incluzând Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch și fișiere jurnal (.log).
-- Aliniere precisă a numerelor de rând pentru caractere cu lățime completă / CJK:
-  Spațierea uniformă a rândurilor DirectWrite asigură alinierea la nivel de pixel fără pierderi de performanță.
-- Precizia barei de derulare orizontale și îmbunătățiri de editare:
-  S-a corectat apariția prematură a barei orizontale după apăsarea tastei Enter într-un fișier nou, ascunderea imediată la scurtarea rândurilor lungi și s-au îmbunătățit duplicarea rândurilor (Alt+Shift+Jos) și Anulare/Refacere.""",
+- Expresii regulate precise pentru caractere Unicode și cu lățime completă:
+  S-a rezolvat o problemă prin care „.” sau intervalele de caractere din expresiile regulate înlocuiau de mai multe ori un singur caracter UTF-8 multi-byte (diacritice românești, japoneză, coreeană, chineză și emoji).
+- Afișare îmbunătățită a cursorului la derulare:
+  Cursorul nu mai este afișat la începutul primei linii vizibile atunci când linia reală a cursorului este derulată în afara ecranului.
+- Editare rapidă, „Înlocuiește tot” instantaneu și previzualizare live pentru Markdown, LaTeX și Mermaid.""",
         "image_captions": [
             "Mod Luminos cu afișare clară și ordonată a documentului",
             "Mod Întunecat cu evidențierea sintaxei codului sursă",
@@ -879,15 +862,14 @@ A másodperc törtrésze alatt elindul, így tökéletes választás gyors jegyz
             "kódszerkesztő",
             "szöveg"
         ],
-        "releaseNotes": """miu v1.0.44 kiadási megjegyzések
-🎨 25 új szintaxiskiemelési nyelv (49 kategória / 120+ kiterjesztés) + CJK sorszám-igazítás és vízszintes görgetősáv javítások
+        "releaseNotes": """miu v1.0.48 kiadási megjegyzések
+🔍 Pontos többnyelvű Regex keresés/csere és javított kurzormegjelenítés görgetéskor
 
-- 25 új szintaxiskiemelési nyelv és megjegyzésváltás (Ctrl+/):
-  49 kategóriára (több mint 120 fájlkiterjesztésre) bővítve, beleértve: Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaderek (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch és naplófájlok (.log).
-- Pixelpontos sorszám-igazítás teljes szélességű / CJK karaktereknél:
-  Az egységes DirectWrite sorköz biztosítja a sorszámok és a szöveg pontos illeszkedését teljesítményveszteség nélkül.
-- Vízszintes görgetősáv és szerkesztőmotor fejlesztések:
-  Javítva a vízszintes görgetősáv idő előtti megjelenése új fájlban történő Enter leütése után, azonnali elrejtés hosszú sorok rövidítésekor, valamint pontosabb sorduplikálás (Alt+Shift+Le) és Visszavonás/Újra.""",
+- Pontos reguláris kifejezések teljes szélességű és Unicode karakterekhez:
+  Javítottuk azt a hibát, amelynél a „.” vagy a karaktertartományok használata többször cserélt le egyetlen többbájtos UTF-8 karaktert (magyar ékezetes betűk, japán, koreai, kínai karakterek és emojik).
+- Javított kurzormegjelenítés görgetés közben:
+  A kurzor többé nem jelenik meg a legfelső látható sor elején, amikor a tényleges kurzorsor a képernyőn kívülre kerül.
+- Gyors szerkesztés, azonnali „Összes cseréje” és folyamatos Markdown, LaTeX és Mermaid élő előnézet.""",
         "image_captions": [
             "Világos mód letisztult és jól áttekinthető dokumentumnézettel",
             "Sötét mód színes kódszintaxis-kiemeléssel",
@@ -926,15 +908,14 @@ A másodperc törtrésze alatt elindul, így tökéletes választás gyors jegyz
             "κώδικας",
             "κείμενο"
         ],
-        "releaseNotes": """Σημειώσεις έκδοσης miu v1.0.44
-🎨 Προσθήκη 25 γλωσσών επισήμανσης σύνταξης (49 κατηγορίες / 120+ επεκτάσεις) + Ευθυγράμμιση αριθμών γραμμής CJK & διορθώσεις οριζόντιας γραμμής κύλισης
+        "releaseNotes": """Σημειώσεις έκδοσης miu v1.0.48
+🔍 Ακριβής αναζήτηση/αντικατάσταση Regex για πολυγλωσσικούς χαρακτήρες & διόρθωση δρομέα
 
-- 25 νέες γλώσσες επισήμανσης σύνταξης και εναλλαγή σχολίων (Ctrl+/):
-  Επέκταση σε 49 κατηγορίες (πάνω από 120 επεκτάσεις αρχείων), όπως Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Μητρώο Windows (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch και αρχεία καταγραφής (.log).
-- Ακριβής ευθυγράμμιση αριθμών γραμμής για χαρακτήρες πλήρους πλάτους / CJK:
-  Ομοιόμορφο διάστιχο DirectWrite για ευθυγράμμιση ακριβείας pixel χωρίς απώλεια απόδοσης.
-- Ακρίβεια οριζόντιας γραμμής κύλισης & βελτιώσεις επεξεργασίας:
-  Διορθώθηκε η πρόωρη εμφάνιση της οριζόντιας γραμμής κύλισης μετά το πάτημα Enter σε νέο αρχείο, η άμεση απόκρυψη κατά τη συντόμευση μεγάλων γραμμών και βελτιώθηκαν ο διπλασιασμός γραμμής (Alt+Shift+Κάτω) και η Αναίρεση/Επανάληψη.""",
+- Ακριβείς κανονικές εκφράσεις (Regex) για χαρακτήρες πλήρους πλάτους και Unicode:
+  Διορθώθηκε ένα ζήτημα όπου το «.» ή τα εύρη χαρακτήρων σε εκφράσεις regex αντικαθιστούσαν πολλαπλές φορές έναν χαρακτήρα UTF-8 (ελληνικά, ιαπωνικά, κορεατικά, κινεζικά και emoji).
+- Βελτιωμένη εμφάνιση δρομέα κατά την κύλιση:
+  Ο δρομέας δεν εμφανίζεται πλέον στην αρχή της πρώτης ορατής γραμμής όταν η πραγματική γραμμή του δρομέα βρίσκεται εκτός οθόνης.
+- Γρήγορη επεξεργασία, ακαριαία «Αντικατάσταση όλων» και ζωντανή προεπισκόπηση Markdown, LaTeX & Mermaid.""",
         "image_captions": [
             "Φωτεινή λειτουργία με καθαρή και ευανάγνωστη προβολή εγγράφου",
             "Σκοτεινή λειτουργία με χρωματική επισήμανση σύνταξης κώδικα",
@@ -973,15 +954,14 @@ Det starter på et splitsekund og er perfekt til hurtige noter, analyse af enorm
             "kodeeditor",
             "tekst"
         ],
-        "releaseNotes": """Udgivelsesnoter til miu v1.0.44
-🎨 25 nye sprog til syntaksfremhævning (49 kategorier / 120+ filendelser) + CJK-linjenummerjustering og rettelser til vandret rullepanel
+        "releaseNotes": """Udgivelsesnoter til miu v1.0.48
+🔍 Præcis Regex-søgning/erstatning for flersprogede tegn og forbedret markørvisning ved rulning
 
-- 25 nye sprog til syntaksfremhævning og kommentarskift (Ctrl+/):
-  Udvidet til 49 kategorier (over 120 filendelser), herunder Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows-registreringsdatabase (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch og logfiler (.log).
-- Præcis linjenummerjustering ved fuldbreddetegn / CJK:
-  Ensartet DirectWrite-linjeafstand sikrer pixelpræcis justering uden tab af ydeevne.
-- Præcision af vandret rullepanel og redigeringsmotor:
-  Rettet at det vandrette rullepanel blev vist for tidligt efter Enter i en ny fil, øjeblikkelig skjulning ved afkortning af lange linjer samt forbedret linjeduplikering (Alt+Skift+Ned) og Fortryd/Annuller fortryd.""",
+- Præcise regulære udtryk for fuldbredde- og Unicode-tegn:
+  Rettet en fejl, hvor "." eller tegnintervaller i regulære udtryk erstattede et enkelt multi-byte UTF-8-tegn (japansk, koreansk, kinesisk, æ/ø/å og emojis) flere gange.
+- Forbedret markørvisning under rulning:
+  Markøren vises ikke længere i starten af den øverste synlige linje, når den faktiske markørlinje er rullet ud af skærmen.
+- Hurtig redigering, øjeblikkelig "Erstat alle" og flydende live-forhåndsvisning af Markdown, LaTeX og Mermaid.""",
         "image_captions": [
             "Lys tilstand med ren og overskuelig dokumentvisning",
             "Mørk tilstand med tydelig syntaksfremhævning af kode",
@@ -1020,15 +1000,14 @@ Se käynnistyy silmänräpäyksessä ja sopii täydellisesti nopeisiin muistiinp
             "koodieditori",
             "teksti"
         ],
-        "releaseNotes": """miu v1.0.44 -julkaisutiedot
-🎨 25 uutta syntaksinkorotuskieltä (49 kategoriaa / 120+ tiedostopäätettä) + CJK-rivinumeroiden kohdistus ja vaakavierityspalkin korjaukset
+        "releaseNotes": """miu v1.0.48 -julkaisutiedot
+🔍 Tarkka monikielinen Regex-haku/korvaus ja kohdistimen näytön korjaus vieritettäessä
 
-- 25 uutta syntaksinkorotuskieltä ja kommenttien vaihto (Ctrl+/):
-  Laajennettu 49 kategoriaan (yli 120 tiedostopäätettä), mukaan lukien Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows-rekisteri (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch ja lokitiedostot (.log).
-- Pikselintarkka rivinumeroiden kohdistus täysleveiden / CJK-merkkien kanssa:
-  Yhtenäinen DirectWrite-riviväli varmistaa tarkan kohdistuksen ilman suorituskykyhäviötä.
-- Vaakavierityspalkin tarkkuus ja muokkausmoottorin parannukset:
-  Korjattu vaakavierityspalkin ennenaikainen näkyminen Enterin painamisen jälkeen uudessa tiedostossa, välitön piilotus pitkiä rivejä lyhennettäessä sekä parannettu rivien monistusta (Alt+Vaihto+Alas) ja Kumoa/Tee uudelleen -toimintoja.""",
+- Tarkat säännölliset lausekkeet täyden leveyden ja Unicode-merkeille:
+  Korjattu ongelma, jossa ”.” tai merkkivälit säännöllisissä lausekkeissa korvasivat yhden monimuotoisen UTF-8-merkin (suomen ä/ö, japani, korea, kiina ja emojit) useaan kertaan.
+- Parannettu kohdistimen näkyvyys vierityksen aikana:
+  Kohdistinta ei enää näytetä ylimmän näkyvän rivin alussa, kun varsinainen kohdistinrivi on vieritetty näytön ulkopuolelle.
+- Nopea muokkaus, välitön ”Korvaa kaikki” ja sulava Markdown-, LaTeX- ja Mermaid-esikatselu.""",
         "image_captions": [
             "Vaalea tila selkeällä ja puhtaalla asiakirjanäkymällä",
             "Tumma tila koodin syntaksin värikorostuksella",
@@ -1067,15 +1046,14 @@ Det starter på et øyeblikk og passer perfekt til raske notater, analyse av eno
             "kodeeditor",
             "tekst"
         ],
-        "releaseNotes": """Utgivelsesnotater for miu v1.0.44
-🎨 25 nye språk for syntaksutheving (49 kategorier / 120+ filtyper) + CJK-linjenummerjustering og rettelser for horisontalt rullefelt
+        "releaseNotes": """Utgivelsesnotater for miu v1.0.48
+🔍 Presis Regex-søk/erstatt for flerspråklige tegn og forbedret markørvisning ved rulling
 
-- 25 nye språk for syntaksutheving og kommentarbehandling (Ctrl+/):
-  Utvidet til 49 kategorier (over 120 filtyper), inkludert Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows-register (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch og loggfiler (.log).
-- Pikselpresis linjenummerjustering for fullbreddetegn / CJK:
-  Ensartet DirectWrite-linjeavstand sikrer nøyaktig justering uten ytelsestap.
-- Presisjon for horisontalt rullefelt og redigeringsmotor:
-  Rettet feil der horisontalt rullefelt dukket opp etter Enter i en ny fil, umiddelbar skjuling når lange linjer forkortes, samt forbedret linjeduplisering (Alt+Shift+Ned) og Angre/Gjør om.""",
+- Presise regulære uttrykk for fullbredde- og Unicode-tegn:
+  Rettet en feil der «.» eller tegnintervaller i regulære uttrykk erstattet et enkelt flerbytes UTF-8-tegn (japansk, koreansk, kinesisk, æ/ø/å og emojier) flere ganger.
+- Forbedret markørvisning ved rulling:
+  Markøren vises ikke lenger i starten av den øverste synlige linjen når den faktiske markørlinjen er rullet utenfor skjermen.
+- Rask redigering, umiddelbar «Erstatt alle» og jevn sanntidsvisning for Markdown, LaTeX og Mermaid.""",
         "image_captions": [
             "Lys modus med ren og oversiktlig dokumentvisning",
             "Mørk modus med tydelig syntaksutheving av kode",
@@ -1114,15 +1092,14 @@ Ia dilancarkan dalam sekelip mata dan sangat sesuai untuk nota pantas, memeriksa
             "penyunting kod",
             "teks"
         ],
-        "releaseNotes": """Nota Keluaran miu v1.0.44
-🎨 Tambahan 25 Bahasa Serlahan Sintaks (49 Kategori / 120+ Sambungan) + Penjajaran Nombor Baris CJK & Pembaikan Bar Skrol Mendatar
+        "releaseNotes": """Nota Keluaran miu v1.0.48
+🔍 Carian & Penggantian Regex Berbilang Bahasa yang Tepat serta Pembaikan Kursor Semasa Menatal
 
-- 25 Bahasa Baharu untuk Serlahan Sintaks & Togol Komen (Ctrl+/):
-  Diperluas kepada 49 kategori (lebih 120 sambungan fail), termasuk Dart, R, Zig, Scala, Perl, VB/VBA, F#, Julia, Haskell, Elixir, Dockerfile, Terraform/HCL, TOML/.env, GraphQL, Protobuf, CMake, Makefile, Windows Registry (.reg), Shaders (HLSL/GLSL/WGSL), Assembly, Verilog/SystemVerilog, VHDL, Diff/Patch dan fail log (.log).
-- Penjajaran Nombor Baris Tepat untuk Aksara Lebar Penuh / CJK:
-  Jarak baris DirectWrite yang seragam memastikan baris dengan aksara CJK atau emoji sejajar tepat dengan nombor baris tanpa kehilangan prestasi.
-- Ketepatan Bar Skrol Mendatar & Enjin Penyuntingan:
-  Membaiki bar skrol mendatar yang muncul terlalu awal selepas menekan Enter pada fail baharu, menyembunyikan bar skrol serta-merta apabila baris panjang dipendekkan, serta menambah baik penduaan baris (Alt+Shift+Bawah) dan Buat Asal/Buat Semula.""",
+- Padanan Ungkapan Biasa (Regex) yang Tepat untuk Aksara Lebar Penuh & Unicode:
+  Memperbaiki masalah apabila menggunakan "." atau julat aksara dalam Regex yang sebelum ini menggantikan satu aksara UTF-8 berbilang bait (Jepun, Korea, Cina, aksara beraksen dan emoji) beberapa kali.
+- Paparan Kursor Lebih Baik Semasa Menatal:
+  Memperbaiki masalah kursor yang muncul pada permulaan baris teratas yang kelihatan apabila baris kursor sebenar ditatal keluar dari skrin.
+- Penyuntingan pantas, "Ganti Semua" serta-merta dan Pratonton Langsung Markdown, LaTeX & Mermaid yang lancar.""",
         "image_captions": [
             "Mod Cerah dengan paparan dokumen yang kemas dan jelas",
             "Mod Gelap dengan penyerlahan sintaks kod yang terang",

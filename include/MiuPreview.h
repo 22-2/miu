@@ -18,30 +18,40 @@ namespace MiuPreview {
 inline std::string convertMarkdownToHtml(const std::string& md, int depth = 0);
 inline std::string formatMarkdownInline(const std::string& s, int depth = 0);
 
-inline std::string escapeHtmlBasic(const std::string& s) {
-    std::string out; out.reserve(s.size() + 64);
-    for (char c : s) {
-        if (c == '&') out += "&amp;";
-        else if (c == '<') out += "&lt;";
-        else if (c == '>') out += "&gt;";
-        else if (c == '"') out += "&quot;";
-        else out += c;
+inline std::string escapeHtmlBasic(std::string_view s) {
+    std::string out; out.reserve(s.size() + 32);
+    size_t runStart = 0;
+    const size_t n = s.size();
+    for (size_t i = 0; i < n; ++i) {
+        char c = s[i];
+        const char* rep = nullptr;
+        size_t repLen = 0;
+        if (c == '&') { rep = "&amp;"; repLen = 5; }
+        else if (c == '<') { rep = "&lt;"; repLen = 4; }
+        else if (c == '>') { rep = "&gt;"; repLen = 4; }
+        else if (c == '"') { rep = "&quot;"; repLen = 6; }
+        if (rep) {
+            if (i > runStart) out.append(s.data() + runStart, i - runStart);
+            out.append(rep, repLen);
+            runStart = i + 1;
+        }
     }
+    if (runStart < n) out.append(s.data() + runStart, n - runStart);
     return out;
 }
 
-    inline bool mdIsAsciiPunct(char c)  noexcept{
+    inline bool mdIsAsciiPunct(char c){
         return (c >= 0x21 && c <= 0x2F) || (c >= 0x3A && c <= 0x40) ||
                (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7E);
     }
-    inline bool mdIsSpace(char c)  noexcept{
+    inline bool mdIsSpace(char c){
         return c == ' ' || c == '\t' || c == '\n' || c == '\r';
     }
-    inline bool mdIsAlnum(char c)  noexcept{
+    inline bool mdIsAlnum(char c){
         unsigned char u = (unsigned char)c;
         return (u >= '0' && u <= '9') || (u >= 'A' && u <= 'Z') || (u >= 'a' && u <= 'z');
     }
-    inline std::string mdUnescapeString(const std::string& s)  noexcept{
+    inline std::string mdUnescapeString(const std::string& s){
         std::string r; r.reserve(s.size());
         for (size_t i = 0; i < s.size(); ++i) {
             if (s[i] == '\\' && i + 1 < s.size() && mdIsAsciiPunct(s[i + 1])) {
@@ -52,7 +62,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         }
         return r;
     }
-    inline size_t mdFindMatchingBracket(const std::string& s, size_t openPos)  noexcept{
+    inline size_t mdFindMatchingBracket(const std::string& s, size_t openPos){
         size_t n = s.size();
         int depth = 1;
         size_t i = openPos + 1;
@@ -82,7 +92,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         }
         return std::string::npos;
     }
-    inline bool mdParseLinkDestAndTitle(const std::string& s, size_t openParen, size_t& closeParenOut, std::string& urlOut, std::string& titleOut)  noexcept{
+    inline bool mdParseLinkDestAndTitle(const std::string& s, size_t openParen, size_t& closeParenOut, std::string& urlOut, std::string& titleOut){
         size_t n = s.size();
         if (openParen >= n || s[openParen] != '(') return false;
         size_t i = openParen + 1;
@@ -94,7 +104,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         std::string rawUrl;
         if (s[i] == '<') {
             i++;
-            while (i < n && s[i] != '>' && s[i] != '\n' && s[i] != '<') {
+            while (i < n && s[i] != '>' && s[i] != '\n' && s[i] != '\r' && s[i] != '<') {
                 if (s[i] == '\\' && i + 1 < n) { rawUrl += s[i]; rawUrl += s[i + 1]; i += 2; continue; }
                 rawUrl += s[i++];
             }
@@ -134,7 +144,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         titleOut = mdUnescapeString(rawTitle);
         return true;
     }
-    inline bool mdIsSafeUrl(const std::string& rawUrl, bool isImage)  noexcept{
+    inline bool mdIsSafeUrl(const std::string& rawUrl, bool isImage){
         size_t a = 0, b = rawUrl.size();
         while (a < b && (unsigned char)rawUrl[a] <= 0x20) a++;
         while (b > a && (unsigned char)rawUrl[b - 1] <= 0x20) b--;
@@ -233,7 +243,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         }
         return false;
     }
-    inline bool mdIsSafeHtmlTag(const std::string& tagContent)  noexcept{
+    inline bool mdIsSafeHtmlTag(const std::string& tagContent){
         if (tagContent.empty()) return false;
         if (tagContent.compare(0, 3, "!--") == 0 && tagContent.size() >= 5 && tagContent.compare(tagContent.size() - 2, 2, "--") == 0) return true;
         size_t n = tagContent.size(), p = 0;
@@ -311,7 +321,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         }
         return true;
     }
-    inline size_t mdFindClosingEmphasis(const std::string& s, size_t start, char ch, size_t dlen)  noexcept{
+    inline size_t mdFindClosingEmphasis(const std::string& s, size_t start, char ch, size_t dlen){
         size_t n = s.size();
         size_t i = start;
         int innerSingle = 0;
@@ -388,7 +398,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         return std::string::npos;
     }
 
-    inline uint64_t fnv1a64(const char* data, size_t len, uint64_t seed = 14695981039346656037ULL)  noexcept{
+    inline uint64_t fnv1a64(const char* data, size_t len, uint64_t seed = 14695981039346656037ULL){
         uint64_t h = seed;
         for (size_t i = 0; i < len; ++i) {
             h ^= (unsigned char)data[i];
@@ -402,7 +412,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         std::string tex;
         std::string mml;
     };
-    inline const std::string& cachedLatexToMathML(const std::string& tex, bool displayMode)  noexcept{
+    inline const std::string& cachedLatexToMathML(const std::string& tex, bool displayMode) {
         static MathCacheSlot s_cache[512];
         uint64_t h = fnv1a64(tex.data(), tex.size(), displayMode ? 0x9E3779B97F4A7C15ULL : 14695981039346656037ULL);
         if (h == 0) h = 1;
@@ -413,7 +423,11 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         slot.hash = h;
         slot.displayMode = displayMode;
         slot.tex = tex;
-        slot.mml = Pele::latexToMathML(tex, displayMode);
+        try {
+            slot.mml = Pele::latexToMathML(tex, displayMode);
+        } catch (...) {
+            slot.mml.clear();
+        }
         return slot.mml;
     }
     struct MermaidCacheSlot {
@@ -421,7 +435,7 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         std::string code;
         std::string svg;
     };
-    inline const std::string& cachedMermaidRenderSvg(const std::string& code)  noexcept{
+    inline const std::string& cachedMermaidRenderSvg(const std::string& code) {
         static MermaidCacheSlot s_cache[128];
         uint64_t h = fnv1a64(code.data(), code.size());
         if (h == 0) h = 1;
@@ -431,7 +445,11 @@ inline std::string escapeHtmlBasic(const std::string& s) {
         }
         slot.hash = h;
         slot.code = code;
-        slot.svg = Pele::render(code).svg;
+        try {
+            slot.svg = Pele::render(code).svg;
+        } catch (...) {
+            slot.svg.clear();
+        }
         return slot.svg;
     }
 
@@ -443,6 +461,11 @@ inline std::string formatMarkdownInline(const std::string& s, int depth) {
         if (s[i] == '\\' && i + 1 < n) {
             char nx = s[i + 1];
             if (nx == '\n') { r += "<br>\n"; i += 2; continue; }
+            if (nx == '\r') {
+                r += "<br>\n";
+                i += (i + 2 < n && s[i + 2] == '\n') ? 3 : 2;
+                continue;
+            }
             if (mdIsAsciiPunct(nx)) {
                 if (nx == '&') r += "&amp;";
                 else if (nx == '<') r += "&lt;";
@@ -501,7 +524,7 @@ inline std::string formatMarkdownInline(const std::string& s, int depth) {
             size_t closeMath = i + 1;
             while (closeMath < n) {
                 if (s[closeMath] == '$' && s[closeMath - 1] != '\\') break;
-                if (s[closeMath] == '\n') { closeMath = n; break; }
+                if (s[closeMath] == '\n' || s[closeMath] == '\r') { closeMath = n; break; }
                 closeMath++;
             }
             if (closeMath < n && closeMath > i + 1) {
@@ -552,7 +575,7 @@ inline std::string formatMarkdownInline(const std::string& s, int depth) {
                 if (ce != std::string::npos) { i = ce + 3; continue; }
             }
             size_t gt = s.find('>', i + 1);
-            if (gt != std::string::npos && gt > i + 1 && gt - i <= 512 && s.find('\n', i + 1) > gt) {
+            if (gt != std::string::npos && gt > i + 1 && gt - i <= 512 && s.find_first_of("\r\n", i + 1) > gt) {
                 std::string inner = s.substr(i + 1, gt - i - 1);
                 if ((inner.compare(0, 7, "http://") == 0 || inner.compare(0, 8, "https://") == 0 || inner.compare(0, 6, "ftp://") == 0) && inner.find(' ') == std::string::npos) {
                     r += "<a href=\""; r += escapeHtmlBasic(inner); r += "\">"; r += escapeHtmlBasic(inner); r += "</a>";
@@ -696,13 +719,17 @@ inline std::string formatMarkdownInline(const std::string& s, int depth) {
 }
 inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
     if (depth > 16) return "<p>" + escapeHtmlBasic(md) + "</p>\n";
-    auto trimStr = [](const std::string& str) -> std::string {
+    auto trimSv = [](std::string_view str) -> std::string_view {
         size_t a = 0, b = str.size();
         while (a < b && (str[a] == ' ' || str[a] == '\t')) a++;
         while (b > a && (str[b - 1] == ' ' || str[b - 1] == '\t')) b--;
         return str.substr(a, b - a);
     };
-    auto getIndent = [](const std::string& line, size_t& firstNonSpace) -> int {
+    auto trimStr = [&](std::string_view str) -> std::string {
+        std::string_view sv = trimSv(str);
+        return std::string(sv.data(), sv.size());
+    };
+    auto getIndent = [](std::string_view line, size_t& firstNonSpace) -> int {
         int cols = 0;
         size_t i = 0;
         while (i < line.size()) {
@@ -713,13 +740,13 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         firstNonSpace = i;
         return cols;
     };
-    auto splitCells = [&](const std::string& row) -> std::vector<std::string> {
-        std::string t = trimStr(row);
-        if (!t.empty() && t.front() == '|') t.erase(0, 1);
+    auto splitCells = [&](std::string_view row) -> std::vector<std::string> {
+        std::string_view t = trimSv(row);
+        if (!t.empty() && t.front() == '|') t.remove_prefix(1);
         if (!t.empty() && t.back() == '|') {
             size_t bs = 0;
             for (size_t k = t.size() - 1; k > 0 && t[k - 1] == '\\'; --k) bs++;
-            if ((bs % 2) == 0) t.pop_back();
+            if ((bs % 2) == 0) t.remove_suffix(1);
         }
         std::vector<std::string> cells;
         size_t start = 0, i = 0, n = t.size();
@@ -741,7 +768,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
                 continue;
             }
             if (t[i] == '|') {
-                std::string c = trimStr(t.substr(start, i - start));
+                std::string_view c = trimSv(t.substr(start, i - start));
                 std::string u; u.reserve(c.size());
                 for (size_t k = 0; k < c.size(); ++k) {
                     if (c[k] == '\\' && k + 1 < c.size() && c[k + 1] == '|') { u += '|'; k++; }
@@ -753,7 +780,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
             i++;
         }
         {
-            std::string c = trimStr(t.substr(start));
+            std::string_view c = trimSv(t.substr(start));
             std::string u; u.reserve(c.size());
             for (size_t k = 0; k < c.size(); ++k) {
                 if (c[k] == '\\' && k + 1 < c.size() && c[k + 1] == '|') { u += '|'; k++; }
@@ -763,8 +790,8 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         }
         return cells;
     };
-    auto isTableSep = [&](const std::string& s) -> bool {
-        if (s.find('|') == std::string::npos || s.find('-') == std::string::npos) return false;
+    auto isTableSep = [&](std::string_view s) -> bool {
+        if (s.find('|') == std::string_view::npos || s.find('-') == std::string_view::npos) return false;
         auto cells = splitCells(s);
         if (cells.empty()) return false;
         for (const auto& c : cells) {
@@ -779,7 +806,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         }
         return true;
     };
-    auto isFenceStart = [&](const std::string& line, char& fChar, size_t& fLen, std::string& info) -> bool {
+    auto isFenceStart = [&](std::string_view line, char& fChar, size_t& fLen, std::string& info) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size()) return false;
@@ -788,12 +815,12 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         size_t len = 0;
         while (p + len < line.size() && line[p + len] == c) len++;
         if (len < 3) return false;
-        std::string rest = trimStr(line.substr(p + len));
-        if (c == '`' && rest.find('`') != std::string::npos) return false;
-        fChar = c; fLen = len; info = rest;
+        std::string_view rest = trimSv(line.substr(p + len));
+        if (c == '`' && rest.find('`') != std::string_view::npos) return false;
+        fChar = c; fLen = len; info.assign(rest.data(), rest.size());
         return true;
     };
-    auto isFenceEnd = [&](const std::string& line, char fChar, size_t fLen) -> bool {
+    auto isFenceEnd = [&](std::string_view line, char fChar, size_t fLen) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size() || line[p] != fChar) return false;
@@ -805,7 +832,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         }
         return true;
     };
-    auto isThematicBreak = [&](const std::string& line) -> bool {
+    auto isThematicBreak = [&](std::string_view line) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size()) return false;
@@ -818,7 +845,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         }
         return count >= 3;
     };
-    auto isSetextUnderline = [&](const std::string& line, int& levelOut) -> bool {
+    auto isSetextUnderline = [&](std::string_view line, int& levelOut) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size()) return false;
@@ -831,7 +858,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         levelOut = (c == '=') ? 1 : 2;
         return true;
     };
-    auto isAtxHeading = [&](const std::string& line, int& levelOut, std::string& textOut) -> bool {
+    auto isAtxHeading = [&](std::string_view line, int& levelOut, std::string& textOut) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size() || line[p] != '#') return false;
@@ -840,29 +867,29 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         if (h == 0 || h > 6) return false;
         if (p + h < line.size() && line[p + h] != ' ' && line[p + h] != '\t') return false;
         levelOut = (int)h;
-        std::string rest = trimStr(line.substr(p + h));
+        std::string_view rest = trimSv(line.substr(p + h));
         if (!rest.empty() && rest.back() == '#') {
             size_t e = rest.size();
             while (e > 0 && rest[e - 1] == '#') e--;
-            if (e == 0) rest.clear();
+            if (e == 0) rest = std::string_view{};
             else if (rest[e - 1] == ' ' || rest[e - 1] == '\t') {
                 while (e > 0 && (rest[e - 1] == ' ' || rest[e - 1] == '\t')) e--;
-                rest.erase(e);
+                rest = rest.substr(0, e);
             }
         }
-        textOut = rest;
+        textOut.assign(rest.data(), rest.size());
         return true;
     };
-    auto isBlockquoteLine = [&](const std::string& line, std::string& innerOut) -> bool {
+    auto isBlockquoteLine = [&](std::string_view line, std::string& innerOut) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (ind > 3 || p >= line.size() || line[p] != '>') return false;
         p++;
         if (p < line.size() && (line[p] == ' ' || line[p] == '\t')) p++;
-        innerOut = line.substr(p);
+        innerOut.assign(line.data() + p, line.size() - p);
         return true;
     };
-    auto isListItem = [&](const std::string& line, int& indOut, bool& isOlOut, int& startNumOut, std::string& contentOut) -> bool {
+    auto isListItem = [&](std::string_view line, int& indOut, bool& isOlOut, int& startNumOut, std::string& contentOut) -> bool {
         size_t p = 0;
         int ind = getIndent(line, p);
         if (p >= line.size()) return false;
@@ -874,34 +901,42 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
             startNumOut = 1;
             size_t cs = p + 1;
             if (cs < line.size() && (line[cs] == ' ' || line[cs] == '\t')) cs++;
-            contentOut = line.substr(cs);
+            contentOut.assign(line.data() + cs, line.size() - cs);
             return true;
         }
         size_t d = p;
-        while (d < line.size() && (d - p) < 9 && line[d] >= '0' && line[d] <= '9') d++;
+        int parsedNum = 0;
+        while (d < line.size() && (d - p) < 9 && line[d] >= '0' && line[d] <= '9') {
+            parsedNum = parsedNum * 10 + (line[d] - '0');
+            d++;
+        }
         if (d > p && d < line.size() && (line[d] == '.' || line[d] == ')') && (d + 1 == line.size() || line[d + 1] == ' ' || line[d + 1] == '\t')) {
             indOut = ind;
             isOlOut = true;
-            startNumOut = atoi(line.substr(p, d - p).c_str());
+            startNumOut = parsedNum;
             size_t cs = d + 1;
             if (cs < line.size() && (line[cs] == ' ' || line[cs] == '\t')) cs++;
-            contentOut = line.substr(cs);
+            contentOut.assign(line.data() + cs, line.size() - cs);
             return true;
         }
         return false;
     };
 
-    std::vector<std::string> lines;
+    std::vector<std::string_view> lines;
     lines.reserve(md.size() / 36 + 16);
     {
         size_t pos = 0, len = md.size();
+        const char* base = md.data();
         while (pos < len) {
-            size_t eol = md.find('\n', pos);
-            if (eol == std::string::npos) eol = len;
-            std::string l = md.substr(pos, eol - pos);
-            if (!l.empty() && l.back() == '\r') l.pop_back();
-            lines.push_back(std::move(l));
-            pos = eol + 1;
+            size_t eol = pos;
+            while (eol < len && base[eol] != '\n' && base[eol] != '\r') eol++;
+            lines.emplace_back(base + pos, eol - pos);
+            if (eol < len) {
+                if (base[eol] == '\r' && eol + 1 < len && base[eol + 1] == '\n') pos = eol + 2;
+                else pos = eol + 1;
+            } else {
+                pos = len;
+            }
         }
     }
 
@@ -910,34 +945,34 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
     std::vector<ListLevel> listStack;
     bool inTable = false;
     std::vector<const char*> colAligns;
-    std::vector<std::string> paraLines;
+    std::vector<std::string_view> paraLines;
 
-    auto formatParaLines = [&](const std::vector<std::string>& plines) -> std::string {
+    auto formatParaLines = [&](const std::vector<std::string_view>& plines) -> std::string {
         std::string res;
         for (size_t k = 0; k < plines.size(); ++k) {
-            std::string s = plines[k];
+            std::string_view sv = plines[k];
             size_t lead = 0;
-            while (lead < s.size() && (s[lead] == ' ' || s[lead] == '\t')) lead++;
-            s.erase(0, lead);
+            while (lead < sv.size() && (sv[lead] == ' ' || sv[lead] == '\t')) lead++;
+            sv.remove_prefix(lead);
             bool hardBreak = false;
             if (k + 1 < plines.size()) {
                 size_t trailSp = 0;
-                while (trailSp < s.size() && s[s.size() - 1 - trailSp] == ' ') trailSp++;
+                while (trailSp < sv.size() && sv[sv.size() - 1 - trailSp] == ' ') trailSp++;
                 if (trailSp >= 2) {
-                    s.erase(s.size() - trailSp);
+                    sv.remove_suffix(trailSp);
                     hardBreak = true;
-                } else if (!s.empty() && s.back() == '\\') {
+                } else if (!sv.empty() && sv.back() == '\\') {
                     size_t bs = 0;
-                    for (size_t m = s.size(); m > 0 && s[m - 1] == '\\'; --m) bs++;
+                    for (size_t m = sv.size(); m > 0 && sv[m - 1] == '\\'; --m) bs++;
                     if ((bs % 2) == 1) {
-                        s.pop_back();
+                        sv.remove_suffix(1);
                         hardBreak = true;
                     }
                 }
             } else {
-                while (!s.empty() && (s.back() == ' ' || s.back() == '\t')) s.pop_back();
+                while (!sv.empty() && (sv.back() == ' ' || sv.back() == '\t')) sv.remove_suffix(1);
             }
-            res += formatMarkdownInline(s);
+            res += formatMarkdownInline(std::string(sv.data(), sv.size()));
             if (k + 1 < plines.size()) {
                 res += hardBreak ? "<br>\n" : "\n";
             }
@@ -963,7 +998,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
 
     size_t nLines = lines.size();
     for (size_t idx = 0; idx < nLines; ++idx) {
-        const std::string& line = lines[idx];
+        std::string_view line = lines[idx];
         size_t firstNonSp = 0;
         int lineIndent = getIndent(line, firstNonSp);
         bool isBlank = (firstNonSp >= line.size());
@@ -986,7 +1021,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
                 while (idx < nLines && !isFenceEnd(lines[idx], fChar, fLen)) {
                     if (!firstLine) code += "\n";
                     firstLine = false;
-                    code += lines[idx];
+                    code.append(lines[idx].data(), lines[idx].size());
                     idx++;
                 }
                 const std::string& svg = cachedMermaidRenderSvg(code);
@@ -1006,7 +1041,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
                 while (idx < nLines && !isFenceEnd(lines[idx], fChar, fLen)) {
                     if (!firstLine) code += "\n";
                     firstLine = false;
-                    code += lines[idx];
+                    code.append(lines[idx].data(), lines[idx].size());
                     idx++;
                 }
                 const std::string& mml = cachedLatexToMathML(code, true);
@@ -1035,16 +1070,16 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
 
         // 1b. Display math block ($$ ... $$)
         if (!isBlank && lineIndent <= 3 && line.compare(firstNonSp, 2, "$$") == 0) {
-            std::string trimmedMath = trimStr(line);
+            std::string_view trimmedMath = trimSv(line);
             if (trimmedMath == "$$") {
                 flushPara(); closeLists(); closeTable();
                 std::string code;
                 bool firstLine = true;
                 idx++;
-                while (idx < nLines && trimStr(lines[idx]) != "$$") {
+                while (idx < nLines && trimSv(lines[idx]) != "$$") {
                     if (!firstLine) code += "\n";
                     firstLine = false;
-                    code += lines[idx];
+                    code.append(lines[idx].data(), lines[idx].size());
                     idx++;
                 }
                 const std::string& mml = cachedLatexToMathML(code, true);
@@ -1057,7 +1092,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
             } else if (trimmedMath.size() > 4 && trimmedMath.compare(trimmedMath.size() - 2, 2, "$$") == 0 &&
                        trimmedMath.find("$$", 2) == trimmedMath.size() - 2) {
                 flushPara(); closeLists(); closeTable();
-                std::string code = trimmedMath.substr(2, trimmedMath.size() - 4);
+                std::string code(trimmedMath.data() + 2, trimmedMath.size() - 4);
                 const std::string& mml = cachedLatexToMathML(code, true);
                 if (!mml.empty()) {
                     out += "<div class=\"math-block\" style=\"margin:1em 0;text-align:center;\">";
@@ -1070,7 +1105,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
 
         // 2. Active table continuation
         if (inTable) {
-            if (!isBlank && line.find('|') != std::string::npos) {
+            if (!isBlank && line.find('|') != std::string_view::npos) {
                 auto cells = splitCells(line);
                 size_t numCols = colAligns.size();
                 out += "<tr>";
@@ -1182,7 +1217,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
         }
 
         // 8. GFM Table start (Header row | Separator row)
-        if (line.find('|') != std::string::npos && idx + 1 < nLines && isTableSep(lines[idx + 1])) {
+        if (line.find('|') != std::string_view::npos && idx + 1 < nLines && isTableSep(lines[idx + 1])) {
             flushPara(); closeLists();
             auto hdrs = splitCells(line);
             auto seps = splitCells(lines[idx + 1]);
@@ -1319,7 +1354,7 @@ inline std::string convertMarkdownToHtml(const std::string& md, int depth) {
     return out;
 }
 
-inline bool looksLikeMermaid(const std::string& s)  noexcept{
+inline bool looksLikeMermaid(const std::string& s){
     size_t n = s.size(), i = 0;
     if (n >= 3 && (unsigned char)s[0] == 0xEF && (unsigned char)s[1] == 0xBB && (unsigned char)s[2] == 0xBF) i = 3;
     while (i < n && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n')) i++;
@@ -1327,13 +1362,16 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
         size_t p = i + 3;
         while (p < n && (s[p] == ' ' || s[p] == '\t')) p++;
         if (p < n && (s[p] == '\r' || s[p] == '\n')) {
-            while (p < n && s[p] != '\n') p++;
-            if (p < n) p++;
+            if (s[p] == '\r' && p + 1 < n && s[p + 1] == '\n') p += 2;
+            else p += 1;
             while (p < n) {
                 size_t ls = p;
-                while (p < n && s[p] != '\n') p++;
+                while (p < n && s[p] != '\n' && s[p] != '\r') p++;
                 size_t le = p;
-                if (p < n) p++;
+                if (p < n) {
+                    if (s[p] == '\r' && p + 1 < n && s[p + 1] == '\n') p += 2;
+                    else p += 1;
+                }
                 while (ls < le && (s[ls] == ' ' || s[ls] == '\t')) ls++;
                 while (le > ls && (s[le - 1] == ' ' || s[le - 1] == '\t' || s[le - 1] == '\r')) le--;
                 if (le - ls == 3 && s[ls] == '-' && s[ls + 1] == '-' && s[ls + 2] == '-') { i = p; break; }
@@ -1345,7 +1383,7 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
         if (i >= n) return false;
         if (s[i] == '\r' || s[i] == '\n') { i++; continue; }
         if (i + 1 < n && s[i] == '%' && s[i + 1] == '%') {
-            while (i < n && s[i] != '\n') i++;
+            while (i < n && s[i] != '\n' && s[i] != '\r') i++;
             continue;
         }
         size_t ts = i;
@@ -1398,7 +1436,7 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
     return false;
 }
 
-    inline const char* getMdThemeStyle() noexcept {
+    inline const char* getMdThemeStyle() {
     static const char* const kMdThemeStyle =
         "<style>"
         ":root,html[data-theme=\"light\"]{"
@@ -1409,21 +1447,33 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
         "--al-tip-bd:#1a7f37;--al-tip-bg:rgba(26,127,55,.08);--al-tip-fg:#1a7f37;"
         "--al-imp-bd:#8250df;--al-imp-bg:rgba(130,80,223,.08);--al-imp-fg:#8250df;"
         "--al-warn-bd:#9a6700;--al-warn-bg:rgba(154,103,0,.08);--al-warn-fg:#9a6700;"
-        "--al-caut-bd:#cf222e;--al-caut-bg:rgba(207,34,46,.08);--al-caut-fg:#cf222e"
+        "--al-caut-bd:#cf222e;--al-caut-bg:rgba(207,34,46,.08);--al-caut-fg:#cf222e;"
+        "--sb-thumb:rgba(0,0,0,0.38);--sb-thumb-active:rgba(0,0,0,0.60)"
         "}"
         "html[data-theme=\"dark\"]{"
         "color-scheme:dark;--md-fg:#e0e0e0;--md-hr:#383838;--md-code-bg:#2d2d2d;--md-pre-bd:#333;--md-kbd-bg:#2d2d2d;--md-bq-bd:#555;--md-tbl-bd:#444;--md-tr-even:#252526;"
-        "--pele-bg:#1e1e1e;--pele-fg:#e6edf3;--pele-muted:#9198a1;--pele-line:#9da7b3;--pele-surface:#252526;--pele-surface-alt:#2d2d30;--pele-border:#484f58;--pele-accent:#58a6ff;--pele-critical:#ff7b72;--pele-error:#ff7b72;--pele-radius:6px;"
+        "--pele-bg:#000000;--pele-fg:#e6edf3;--pele-muted:#9198a1;--pele-line:#9da7b3;--pele-surface:#252526;--pele-surface-alt:#2d2d30;--pele-border:#484f58;--pele-accent:#58a6ff;--pele-critical:#ff7b72;--pele-error:#ff7b72;--pele-radius:6px;"
         "--pele-series-1:#58a6ff;--pele-series-2:#f0883e;--pele-series-3:#3fb950;--pele-series-4:#ff7b72;--pele-series-5:#56d4dd;--pele-series-6:#d29922;--pele-series-7:#bc8cff;--pele-series-8:#a5d6ff;"
         "--al-note-bd:#2f81f7;--al-note-bg:rgba(47,129,247,.1);--al-note-fg:#58a6ff;"
         "--al-tip-bd:#3fb950;--al-tip-bg:rgba(63,185,80,.1);--al-tip-fg:#3fb950;"
         "--al-imp-bd:#a371f7;--al-imp-bg:rgba(163,113,247,.1);--al-imp-fg:#bc8cff;"
         "--al-warn-bd:#d29922;--al-warn-bg:rgba(210,153,34,.1);--al-warn-fg:#e3b341;"
-        "--al-caut-bd:#f85149;--al-caut-bg:rgba(248,81,73,.1);--al-caut-fg:#ff7b72"
+        "--al-caut-bd:#f85149;--al-caut-bg:rgba(248,81,73,.1);--al-caut-fg:#ff7b72;"
+        "--sb-thumb:rgba(255,255,255,0.42);--sb-thumb-active:rgba(255,255,255,0.65)"
         "}"
         "html{background:var(--pele-bg);color:var(--md-fg);min-height:100%}"
-        "html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}html,body{scrollbar-width:none}"
-        "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--pele-bg);color:var(--md-fg);margin:16px 20px;min-height:calc(100vh - 32px);box-sizing:border-box;line-height:1.6;word-wrap:break-word}"
+        "html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}html,body{scrollbar-width:none!important}"
+        "*::-webkit-scrollbar{width:10px;height:10px;background:transparent}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:9999px;border:2px solid transparent;background-clip:padding-box}*::-webkit-scrollbar-thumb:hover,*::-webkit-scrollbar-thumb:active{background:var(--sb-thumb-active);border:2px solid transparent;background-clip:padding-box}"
+        ".__ag_sb_v,.__ag_sb_h{position:fixed!important;z-index:2147483647!important;display:flex!important;user-select:none!important;-webkit-user-select:none!important;touch-action:none!important;opacity:0;pointer-events:none;margin:0!important;padding:0!important;border:none!important;background:transparent!important;box-sizing:border-box!important}"
+        ".__ag_sb_v{top:2px!important;bottom:2px!important;right:0!important;width:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:row!important}"
+        ".__ag_sb_h{left:2px!important;right:2px!important;bottom:0!important;height:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:column!important}"
+        ".__ag_sb_v[data-visible=\"true\"],.__ag_sb_h[data-visible=\"true\"]{opacity:1!important;pointer-events:auto!important}"
+        ".__ag_sb_vt,.__ag_sb_ht{border-radius:9999px!important;background-color:var(--sb-thumb)!important;margin:0!important;padding:0!important;border:none!important;flex-shrink:0!important;box-sizing:border-box!important}"
+        ".__ag_sb_vt{width:6px!important}.__ag_sb_ht{height:6px!important}"
+        ".__ag_sb_v[data-expanded=\"true\"] .__ag_sb_vt{width:8px!important;background-color:var(--sb-thumb-active)!important}"
+        ".__ag_sb_h[data-expanded=\"true\"] .__ag_sb_ht{height:8px!important;background-color:var(--sb-thumb-active)!important}"
+        "body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--pele-bg);color:var(--md-fg);margin:0;padding:16px 20px;min-height:100vh;box-sizing:border-box;line-height:1.6;word-wrap:break-word}"
+        "#__miu_root>:first-child{margin-top:0}#__miu_root>:last-child{margin-bottom:0}"
         "h1,h2,h3,h4,h5,h6{margin-top:20px;margin-bottom:10px;font-weight:600;line-height:1.25}"
         "h1{font-size:1.85em;padding-bottom:.28em;border-bottom:1px solid var(--md-hr)}"
         "h2{font-size:1.45em;padding-bottom:.25em;border-bottom:1px solid var(--md-hr)}"
@@ -1446,7 +1496,7 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
         "a{color:var(--pele-accent);text-decoration:none}a:hover{text-decoration:underline}"
         "table{border-collapse:collapse;margin:12px 0}th,td{border:1px solid var(--md-tbl-bd);padding:6px 13px}th{background:var(--md-kbd-bg);font-weight:600}tr:nth-child(2n){background:var(--md-tr-even)}"
         ".pele-diagram{position:relative;margin:12px 0;padding:14px 16px;border-radius:6px;border:1px solid var(--md-pre-bd);background:var(--pele-bg);text-align:center;overflow:hidden}"
-        ".pele-diagram.pele-full{margin:0;min-height:calc(100vh - 34px);box-sizing:border-box}"
+        ".pele-diagram.pele-full{margin:0;min-height:calc(100vh - 32px);box-sizing:border-box}"
         ".pele-diagram>svg.pele{display:block;margin:0 auto}"
         ".pele-zoom button:hover{background:var(--pele-surface-alt)!important}"
         ".miu-trunc{margin:16px 0;padding:8px 12px;border-radius:6px;border:1px dashed var(--md-bq-bd);background:var(--pele-surface);color:var(--pele-muted);font-size:12px}"
@@ -1455,8 +1505,51 @@ inline bool looksLikeMermaid(const std::string& s)  noexcept{
     return kMdThemeStyle;
 }
 
+inline const char* getPreviewScrollbarJs() {
+    static const char* const kSbJs =
+        "var vT,vTh,hT,hTh,vH=false,hH=false,vD=false,hD=false,vMS=1,vMO=0,vTL=28,hMS=1,hMO=0,hTL=28,dSC=0,dSS=0;"
+        "function upd(){"
+        "if(window.miuPreview)return;"
+        "if(!vT||!hT){vT=document.querySelector('.__ag_sb_v');vTh=document.querySelector('.__ag_sb_vt');hT=document.querySelector('.__ag_sb_h');hTh=document.querySelector('.__ag_sb_ht');if(!vT||!hT)return;}"
+        "var doc=document.scrollingElement||document.documentElement;if(!doc)return;"
+        "var cw=doc.clientWidth||window.innerWidth,ch=doc.clientHeight||window.innerHeight;"
+        "var sw=Math.max(doc.scrollWidth,document.body?document.body.scrollWidth:0),sh=Math.max(doc.scrollHeight,document.body?document.body.scrollHeight:0);"
+        "var sx=window.scrollX||doc.scrollLeft||0,sy=window.scrollY||doc.scrollTop||0;"
+        "var hasV=ch>0&&sh>ch+1,hasH=cw>0&&sw>cw+1;"
+        "if(hasV){var tl=Math.max(0,ch-4-(hasH?14:0));vTL=Math.min(tl,Math.max(28,Math.round((ch/sh)*tl)));vMS=Math.max(1,sh-ch);vMO=Math.max(0,tl-vTL);var off=Math.round(Math.min(1,Math.max(0,sy/vMS))*vMO);vTh.style.height=vTL+'px';vTh.style.transform='translate(0px,'+off+'px)';}"
+        "if(hasH){var tl=Math.max(0,cw-4-(hasV?14:0));hTL=Math.min(tl,Math.max(28,Math.round((cw/sw)*tl)));hMS=Math.max(1,sw-cw);hMO=Math.max(0,tl-hTL);var off=Math.round(Math.min(1,Math.max(0,sx/hMS))*hMO);hTh.style.width=hTL+'px';hTh.style.transform='translate('+off+'px,0px)';}"
+        "vT.setAttribute('data-visible',hasV?'true':'false');vT.setAttribute('data-expanded',(vH||vD)?'true':'false');"
+        "hT.setAttribute('data-visible',hasH?'true':'false');hT.setAttribute('data-expanded',(hH||hD)?'true':'false');"
+        "}"
+        "function initSb(){"
+        "if(window.miuPreview)return;"
+        "if(document.querySelector('.__ag_sb_v')){upd();return;}"
+        "if(!document.documentElement)return;"
+        "vT=document.createElement('div');vT.className='__ag_sb_v';vTh=document.createElement('div');vTh.className='__ag_sb_vt';vT.appendChild(vTh);"
+        "hT=document.createElement('div');hT.className='__ag_sb_h';hTh=document.createElement('div');hTh.className='__ag_sb_ht';hT.appendChild(hTh);"
+        "document.documentElement.appendChild(vT);document.documentElement.appendChild(hT);"
+        "vT.addEventListener('pointerenter',function(){vH=true;upd();});vT.addEventListener('pointerleave',function(){vH=false;upd();});"
+        "vT.addEventListener('pointerdown',function(e){if(e.button!==0)return;e.preventDefault();e.stopPropagation();if(e.target===vT&&vMO>0){var r=vT.getBoundingClientRect(),co=Math.min(vMO,Math.max(0,(e.clientY-r.top)-vTL*0.5));window.scrollTo(window.scrollX,(co/vMO)*vMS);upd();}try{vT.setPointerCapture(e.pointerId);}catch(_){}vD=true;dSC=e.clientY;dSS=window.scrollY;upd();});"
+        "vT.addEventListener('pointermove',function(e){if(!vD||vMO<=0)return;window.scrollTo(window.scrollX,dSS+((e.clientY-dSC)/vMO)*vMS);});"
+        "var endV=function(e){if(vD){try{if(vT.hasPointerCapture(e.pointerId))vT.releasePointerCapture(e.pointerId);}catch(_){}vD=false;upd();}};"
+        "vT.addEventListener('pointerup',endV);vT.addEventListener('pointercancel',endV);vT.addEventListener('lostpointercapture',function(){if(vD){vD=false;upd();}});"
+        "hT.addEventListener('pointerenter',function(){hH=true;upd();});hT.addEventListener('pointerleave',function(){hH=false;upd();});"
+        "hT.addEventListener('pointerdown',function(e){if(e.button!==0)return;e.preventDefault();e.stopPropagation();if(e.target===hT&&hMO>0){var r=hT.getBoundingClientRect(),co=Math.min(hMO,Math.max(0,(e.clientX-r.left)-hTL*0.5));window.scrollTo((co/hMO)*hMS,window.scrollY);upd();}try{hT.setPointerCapture(e.pointerId);}catch(_){}hD=true;dSC=e.clientX;dSS=window.scrollX;upd();});"
+        "hT.addEventListener('pointermove',function(e){if(!hD||hMO<=0)return;window.scrollTo(dSS+((e.clientX-dSC)/hMO)*hMS,window.scrollY);});"
+        "var endH=function(e){if(hD){try{if(hT.hasPointerCapture(e.pointerId))hT.releasePointerCapture(e.pointerId);}catch(_){}hD=false;upd();}};"
+        "hT.addEventListener('pointerup',endH);hT.addEventListener('pointercancel',endH);hT.addEventListener('lostpointercapture',function(){if(hD){hD=false;upd();}});"
+        "if(typeof ResizeObserver!=='undefined'){var ro=new ResizeObserver(upd);ro.observe(document.documentElement);if(document.body)ro.observe(document.body);}"
+        "window.addEventListener('scroll',upd,{passive:true});"
+        "window.addEventListener('resize',upd,{passive:true});"
+        "upd();"
+        "}"
+        "window.__miuSbUpd=upd;"
+        "initSb();";
+    return kSbJs;
+}
 
-inline const std::string& getPreviewCspNonce() noexcept {
+
+inline const std::string& getPreviewCspNonce() {
     static std::string s_nonce;
     if (s_nonce.empty()) {
         std::random_device rd;
@@ -1556,7 +1649,9 @@ inline PreviewRenderResult renderPreview(
         html += res.bodyContent;
         html += "</div><script nonce=\"";
         html += nonce;
-        html += "\">(function(){"
+        html += "\">(function(){";
+        html += getPreviewScrollbarJs();
+        html +=
             "window.__miuUpdate=function(h,dk){"
             "document.documentElement.setAttribute('data-theme',dk?'dark':'light');"
             "var r=document.getElementById('__miu_root');if(!r)return;"
@@ -1574,6 +1669,7 @@ inline PreviewRenderResult renderPreview(
             "else r.appendChild(nc[j]);"
             "}"
             "while(r.childNodes.length>nc.length)r.removeChild(r.lastChild);"
+            "initSb();upd();"
             "};"
             "document.addEventListener('change',function(e){"
             "var t=e.target;"
@@ -1583,6 +1679,8 @@ inline PreviewRenderResult renderPreview(
             "window.webkit.messageHandlers.miuPreview.postMessage('toggle_task:'+dl);"
             "}else if(window.chrome&&window.chrome.webview){"
             "window.chrome.webview.postMessage('toggle_task:'+dl);"
+            "}else if(window.miuPreview&&window.miuPreview.postMessage){"
+            "window.miuPreview.postMessage('toggle_task:'+dl);"
             "}"
             "}"
             "});"
@@ -1595,8 +1693,8 @@ inline PreviewRenderResult renderPreview(
     std::string& html = res.fullHtml;
     html.reserve(rawInput.size() + 1024);
     const char* webDefStyle = isDarkMode
-        ? "<style>:where(:root,body){color-scheme:dark;background:#1e1e1e;color:#e6edf3}html,body{min-height:100%;scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}</style>"
-        : "<style>:where(:root,body){color-scheme:light;background:#ffffff;color:#1f2328}html,body{min-height:100%;scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}</style>";
+        ? "<style>:where(:root,html,body){color-scheme:dark;background:#000000;color:#e6edf3;--sb-thumb:rgba(255,255,255,0.42);--sb-thumb-active:rgba(255,255,255,0.65)}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}html,body{scrollbar-width:none!important}*::-webkit-scrollbar{width:10px;height:10px;background:transparent}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:9999px;border:2px solid transparent;background-clip:padding-box}*::-webkit-scrollbar-thumb:hover,*::-webkit-scrollbar-thumb:active{background:var(--sb-thumb-active);border:2px solid transparent;background-clip:padding-box}.__ag_sb_v,.__ag_sb_h{position:fixed!important;z-index:2147483647!important;display:flex!important;user-select:none!important;-webkit-user-select:none!important;touch-action:none!important;opacity:0;pointer-events:none;margin:0!important;padding:0!important;border:none!important;background:transparent!important;box-sizing:border-box!important}.__ag_sb_v{top:2px!important;bottom:2px!important;right:0!important;width:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:row!important}.__ag_sb_h{left:2px!important;right:2px!important;bottom:0!important;height:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:column!important}.__ag_sb_v[data-visible=\"true\"],.__ag_sb_h[data-visible=\"true\"]{opacity:1!important;pointer-events:auto!important}.__ag_sb_vt,.__ag_sb_ht{border-radius:9999px!important;background-color:var(--sb-thumb)!important;margin:0!important;padding:0!important;border:none!important;flex-shrink:0!important;box-sizing:border-box!important}.__ag_sb_vt{width:6px!important}.__ag_sb_ht{height:6px!important}.__ag_sb_v[data-expanded=\"true\"] .__ag_sb_vt{width:8px!important;background-color:var(--sb-thumb-active)!important}.__ag_sb_h[data-expanded=\"true\"] .__ag_sb_ht{height:8px!important;background-color:var(--sb-thumb-active)!important}</style>"
+        : "<style>:where(:root,html,body){color-scheme:light;background:#ffffff;color:#1f2328;--sb-thumb:rgba(0,0,0,0.38);--sb-thumb-active:rgba(0,0,0,0.60)}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}html,body{scrollbar-width:none!important}*::-webkit-scrollbar{width:10px;height:10px;background:transparent}*::-webkit-scrollbar-track{background:transparent}*::-webkit-scrollbar-thumb{background:var(--sb-thumb);border-radius:9999px;border:2px solid transparent;background-clip:padding-box}*::-webkit-scrollbar-thumb:hover,*::-webkit-scrollbar-thumb:active{background:var(--sb-thumb-active);border:2px solid transparent;background-clip:padding-box}.__ag_sb_v,.__ag_sb_h{position:fixed!important;z-index:2147483647!important;display:flex!important;user-select:none!important;-webkit-user-select:none!important;touch-action:none!important;opacity:0;pointer-events:none;margin:0!important;padding:0!important;border:none!important;background:transparent!important;box-sizing:border-box!important}.__ag_sb_v{top:2px!important;bottom:2px!important;right:0!important;width:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:row!important}.__ag_sb_h{left:2px!important;right:2px!important;bottom:0!important;height:14px!important;justify-content:center!important;align-items:flex-start!important;flex-direction:column!important}.__ag_sb_v[data-visible=\"true\"],.__ag_sb_h[data-visible=\"true\"]{opacity:1!important;pointer-events:auto!important}.__ag_sb_vt,.__ag_sb_ht{border-radius:9999px!important;background-color:var(--sb-thumb)!important;margin:0!important;padding:0!important;border:none!important;flex-shrink:0!important;box-sizing:border-box!important}.__ag_sb_vt{width:6px!important}.__ag_sb_ht{height:6px!important}.__ag_sb_v[data-expanded=\"true\"] .__ag_sb_vt{width:8px!important;background-color:var(--sb-thumb-active)!important}.__ag_sb_h[data-expanded=\"true\"] .__ag_sb_ht{height:8px!important;background-color:var(--sb-thumb-active)!important}</style>";
     std::string lower = Emmet::toLowerStr(rawInput.substr(0, std::min(rawInput.size(), (size_t)1024)));
     bool hasFullHtml = (lower.find("<html") != std::string::npos || lower.find("<!doctype") != std::string::npos);
     if (hasFullHtml) {
@@ -1610,7 +1708,7 @@ inline PreviewRenderResult renderPreview(
         if (isWebExt || rawInput.find('<') != std::string::npos) {
             html += "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"; html += baseHrefTag; html += webDefStyle; html += "</head><body>"; html += rawInput; html += truncNotice; html += "</body></html>";
         } else {
-            html += "<!DOCTYPE html><html data-theme=\""; html += (isDarkMode ? "dark" : "light"); html += "\"><head><meta charset=\"utf-8\">"; html += kMdThemeStyle; html += "</head><body><pre>"; html += escapeHtmlBasic(rawInput); html += "</pre>"; html += truncNotice; html += "</body></html>";
+            html += "<!DOCTYPE html><html data-theme=\""; html += (isDarkMode ? "dark" : "light"); html += "\"><head><meta charset=\"utf-8\">"; html += kMdThemeStyle; html += "</head><body><pre>"; html += escapeHtmlBasic(rawInput); html += "</pre>"; html += truncNotice; html += "<script>(function(){"; html += getPreviewScrollbarJs(); html += "})();</script></body></html>";
         }
     }
     res.bodyHtml = res.bodyContent;
@@ -1623,12 +1721,38 @@ inline PreviewRenderResult renderPreview(
     bool isDarkMode,
     const std::string& /*customNonce*/ = "")
 {
-    std::wstring wext;
-    for (unsigned char c : currentFileExtUtf8) {
-        if (wext.empty() && c == '.') continue;
-        wext.push_back((wchar_t)std::tolower(c));
+    try {
+        std::wstring wext;
+        for (unsigned char c : currentFileExtUtf8) {
+            if (wext.empty() && c == '.') continue;
+            wext.push_back((wchar_t)std::tolower(c));
+        }
+        static constexpr size_t PREVIEW_MAX_BYTES = 524288;
+        if (rawInput.size() > PREVIEW_MAX_BYTES) {
+            std::string truncated = rawInput.substr(0, PREVIEW_MAX_BYTES);
+            size_t searchFrom = (truncated.size() > 4096) ? (truncated.size() - 4096) : 0;
+            size_t lastNl = truncated.find_last_of("\r\n");
+            if (lastNl != std::string::npos && lastNl >= searchFrom) {
+                truncated.erase(lastNl + 1);
+            } else {
+                size_t cut = truncated.size();
+                while (cut > 0 && ((unsigned char)truncated[cut - 1] & 0xC0) == 0x80) cut--;
+                if (cut > 0) {
+                    unsigned char lead = (unsigned char)truncated[cut - 1];
+                    size_t expLen = 1;
+                    if ((lead & 0xE0) == 0xC0) expLen = 2;
+                    else if ((lead & 0xF0) == 0xE0) expLen = 3;
+                    else if ((lead & 0xF8) == 0xF0) expLen = 4;
+                    if (cut - 1 + expLen > truncated.size()) cut--;
+                }
+                truncated.erase(cut);
+            }
+            return renderPreview(truncated, true, "Preview truncated (512 KB)", wext, isDarkMode, "");
+        }
+        return renderPreview(rawInput, false, "", wext, isDarkMode, "");
+    } catch (...) {
+        return PreviewRenderResult{};
     }
-    return renderPreview(rawInput, false, "", wext, isDarkMode, "");
 }
 
 } // namespace MiuPreview

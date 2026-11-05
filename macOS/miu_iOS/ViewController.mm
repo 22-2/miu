@@ -77,6 +77,8 @@
 @implementation MiuIOSPreviewSplitterView
 - (instancetype)initWithFrame:(CGRect)frame {
     if (self = [super initWithFrame:frame]) {
+        self.clipsToBounds = YES;
+        self.opaque = YES;
         UIPanGestureRecognizer *pan = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(handleSplitterPan:)];
         [self addGestureRecognizer:pan];
     }
@@ -84,19 +86,30 @@
 }
 - (void)drawRect:(CGRect)rect {
     BOOL dark = self.editor ? self.editor->isDarkMode : NO;
-    UIColor *bgCol = dark ? [UIColor colorWithWhite:0.20 alpha:0.95] : [UIColor colorWithWhite:0.85 alpha:0.95];
+    UIColor *bgCol = dark ? [UIColor blackColor] : [UIColor whiteColor];
     [bgCol setFill];
-    UIRectFill(rect);
-    UIColor *pillCol = dark ? [UIColor colorWithWhite:0.55 alpha:0.9] : [UIColor colorWithWhite:0.50 alpha:0.9];
+    UIRectFill(CGRectIntersection(rect, self.bounds));
+    UIColor *lineCol = dark ? [UIColor colorWithWhite:1.0 alpha:0.06] : [UIColor colorWithWhite:0.0 alpha:0.06];
+    [lineCol setFill];
+    if (self.bounds.size.width < self.bounds.size.height) {
+        UIRectFillUsingBlendMode(CGRectMake(std::floor(self.bounds.size.width * 0.5), 0, 1.0, self.bounds.size.height), kCGBlendModeNormal);
+    } else {
+        UIRectFillUsingBlendMode(CGRectMake(0, std::floor(self.bounds.size.height * 0.5), self.bounds.size.width, 1.0), kCGBlendModeNormal);
+    }
+    UIColor *pillCol = dark ? [UIColor colorWithWhite:1.0 alpha:0.22] : [UIColor colorWithWhite:0.0 alpha:0.22];
     [pillCol setFill];
     CGRect pillRect;
     if (self.bounds.size.width < self.bounds.size.height) {
-        pillRect = CGRectMake((self.bounds.size.width - 2.0) * 0.5, (self.bounds.size.height - 32.0) * 0.5, 2.0, 32.0);
+        pillRect = CGRectMake((self.bounds.size.width - 2.0) * 0.5, (self.bounds.size.height - 28.0) * 0.5, 2.0, 28.0);
     } else {
-        pillRect = CGRectMake((self.bounds.size.width - 32.0) * 0.5, (self.bounds.size.height - 2.0) * 0.5, 32.0, 2.0);
+        pillRect = CGRectMake((self.bounds.size.width - 28.0) * 0.5, (self.bounds.size.height - 2.0) * 0.5, 28.0, 2.0);
     }
     UIBezierPath *bp = [UIBezierPath bezierPathWithRoundedRect:pillRect cornerRadius:1.0];
     [bp fill];
+}
+- (BOOL)pointInside:(CGPoint)point withEvent:(UIEvent *)event {
+    CGRect hitBounds = CGRectInset(self.bounds, -10.0, -10.0);
+    return CGRectContainsPoint(hitBounds, point);
 }
 - (void)handleSplitterPan:(UIPanGestureRecognizer *)pan {
     if (!self.editor || !self.superview) return;
@@ -105,13 +118,17 @@
     if (self.isVerticalSplit) {
         CGFloat totalH = container.bounds.size.height;
         if (totalH > 100.0) {
-            self.editor->previewSplitRatio = std::clamp((float)(pt.y / totalH), 0.15f, 0.85f);
+            float ratio = std::clamp((float)(pt.y / totalH), 0.15f, 0.85f);
+            if (std::fabs(ratio - 0.5f) < 0.025f) ratio = 0.5f;
+            self.editor->previewSplitRatio = ratio;
             if (self.onRatioChanged) self.onRatioChanged();
         }
     } else {
         CGFloat totalW = container.bounds.size.width;
         if (totalW > 100.0) {
-            self.editor->previewSplitRatio = std::clamp((float)(pt.x / totalW), 0.15f, 0.85f);
+            float ratio = std::clamp((float)(pt.x / totalW), 0.15f, 0.85f);
+            if (std::fabs(ratio - 0.5f) < 0.025f) ratio = 0.5f;
+            self.editor->previewSplitRatio = ratio;
             if (self.onRatioChanged) self.onRatioChanged();
         }
     }
@@ -167,6 +184,7 @@
 @property (nonatomic, copy) void (^onNewDocumentAction)(void);
 @property (nonatomic, copy) void (^onGoToLineAction)(void);
 @property (nonatomic, copy) void (^onOpenRecentAction)(UIView *sourceView);
+@property (nonatomic, copy) UIMenu *(^onBuildOpenRecentMenu)(void);
 @property (nonatomic, copy) BOOL (^onDismissOpenRecentIfVisible)(void);
 @property (nonatomic, copy) void (^onDismissOpenRecentThenPerform)(void (^block)(void));
 @property (nonatomic, copy) void (^onSyncKeyboardLayout)(void);
@@ -208,6 +226,11 @@
     UITapGestureRecognizer *_tripleTapGR;
     UITapGestureRecognizer *_accessoryTapGR;
     CGSize _lastRenderedBoundsSize;
+    CGFloat _panTotalDx;
+    CGFloat _panTotalDy;
+    CGFloat _unconsumedDownwardSwipe;
+    BOOL _didDismissKeyboardInCurrentPan;
+    BOOL _isTouchPan;
 }
 @synthesize inputDelegate = _inputDelegate;
 @synthesize markedTextStyle = _markedTextStyle;
@@ -265,6 +288,9 @@
 - (void)hardwareKeyboardStateChanged:(NSNotification *)note {
     dispatch_async(dispatch_get_main_queue(), ^{
         [self reloadInputViews];
+        if (self.onSyncKeyboardLayout) {
+            self.onSyncKeyboardLayout();
+        }
     });
 }
 - (void)dealloc {
@@ -804,8 +830,16 @@
         [self stopMomentumScroll];
         _vScrollAccumulator = 0.0;
         _isScrolling = YES;
+        _panTotalDx = 0.0;
+        _panTotalDy = 0.0;
+        _unconsumedDownwardSwipe = 0.0;
+        _didDismissKeyboardInCurrentPan = NO;
+        _isTouchPan = (gesture.numberOfTouches > 0);
         [self.inputDelegate selectionDidChange:self];
     } else if (gesture.state == UIGestureRecognizerStateChanged) {
+        if (gesture.numberOfTouches > 0) {
+            _isTouchPan = YES;
+        }
         CGPoint translation = [gesture translationInView:self];
         CGFloat dx = 0;
         CGFloat dy = 0;
@@ -818,11 +852,36 @@
             dx = translation.x * scrollMultiplier;
             dy = translation.y * scrollMultiplier;
         }
+        int prevV = self.editor ? self.editor->vScrollPos : 0;
+        int prevSub = self.editor ? self.editor->vScrollSubLine : 0;
         [self applyScrollDeltaX:dx deltaY:dy];
+        if (_isTouchPan && !_didDismissKeyboardInCurrentPan && self.editor) {
+            _panTotalDx += dx;
+            _panTotalDy += dy;
+            BOOL atTopBefore = (prevV == 0 && (!self.editor->wordWrapEnabled || prevSub == 0));
+            BOOL atTopAfter = (self.editor->vScrollPos == 0 && (!self.editor->wordWrapEnabled || self.editor->vScrollSubLine == 0));
+            if (dy > 0.0 && atTopAfter) {
+                _unconsumedDownwardSwipe += atTopBefore ? dy : (dy * 0.6);
+            } else if (dy < 0.0) {
+                _unconsumedDownwardSwipe = MAX(0.0, _unconsumedDownwardSwipe + dy);
+            }
+            if ((_unconsumedDownwardSwipe >= 24.0 || (atTopAfter && _panTotalDy >= 28.0)) &&
+                fabs(_panTotalDy) > fabs(_panTotalDx)) {
+                _didDismissKeyboardInCurrentPan = YES;
+                [self dismissKeyboard];
+            }
+        }
         [gesture setTranslation:CGPointZero inView:self];
         [self setNeedsDisplay];
     } else if (gesture.state == UIGestureRecognizerStateEnded || gesture.state == UIGestureRecognizerStateCancelled) {
         _scrollVelocity = [gesture velocityInView:self];
+        if (_isTouchPan && !_didDismissKeyboardInCurrentPan && self.editor) {
+            BOOL atTopAfter = (self.editor->vScrollPos == 0 && (!self.editor->wordWrapEnabled || self.editor->vScrollSubLine == 0));
+            if (atTopAfter && _panTotalDy >= 16.0 && _scrollVelocity.y > 180.0 && fabs(_panTotalDy) > fabs(_panTotalDx)) {
+                _didDismissKeyboardInCurrentPan = YES;
+                [self dismissKeyboard];
+            }
+        }
         if (fabs(_scrollVelocity.x) < 10.0 && fabs(_scrollVelocity.y) < 10.0) {
             _isScrolling = NO;
             [self.inputDelegate selectionDidChange:self];
@@ -983,6 +1042,19 @@
         }
     } else {
         self.editor->imeComp = "";
+        std::string raw = [text UTF8String] ? [text UTF8String] : "";
+        std::string norm;
+        norm.reserve(raw.size());
+        for (size_t i = 0; i < raw.size(); ++i) {
+            if (raw[i] == '\r') {
+                if (i + 1 < raw.size() && raw[i + 1] == '\n') i++;
+                norm += self.editor->newlineStr;
+            } else if (raw[i] == '\n') {
+                norm += self.editor->newlineStr;
+            } else {
+                norm += raw[i];
+            }
+        }
         bool usePadding = false;
         for (const auto& c : self.editor->cursors) {
             if (c.isVirtual) {
@@ -991,9 +1063,9 @@
             }
         }
         if (usePadding) {
-            self.editor->insertAtCursorsWithPadding([text UTF8String]);
+            self.editor->insertAtCursorsWithPadding(norm);
         } else {
-            self.editor->insertAtCursors([text UTF8String]);
+            self.editor->insertAtCursors(norm);
         }
     }
     self.editor->ensureCaretVisible();
@@ -1364,6 +1436,7 @@
         [UIKeyCommand keyCommandWithInput:@"[" modifierFlags:UIKeyModifierCommand action:@selector(unindentLinesAction:)],
         [UIKeyCommand keyCommandWithInput:@"n" modifierFlags:UIKeyModifierCommand action:@selector(newDocument:)],
         [UIKeyCommand keyCommandWithInput:@"o" modifierFlags:UIKeyModifierCommand action:@selector(openDocument:)],
+        [UIKeyCommand keyCommandWithInput:@"o" modifierFlags:UIKeyModifierCommand | UIKeyModifierShift action:@selector(openRecentDocument:)],
         [UIKeyCommand keyCommandWithInput:@"s" modifierFlags:UIKeyModifierCommand action:@selector(saveDocument:)],
         [UIKeyCommand keyCommandWithInput:@"s" modifierFlags:UIKeyModifierCommand | UIKeyModifierShift action:@selector(saveDocumentAs:)],
         [UIKeyCommand keyCommandWithInput:@"f" modifierFlags:UIKeyModifierCommand action:@selector(cmdFind:)],
@@ -1712,7 +1785,7 @@
         size_t p = c.head;
         int li = self.editor->getLineIdx(p);
         size_t lineStart = self.editor->lineStarts[li];
-        if (p == lineStart && p > 0) p--;
+        if (p == lineStart && p > 0) p = self.editor->moveCaretVisual(p, false);
         else {
             while (p > lineStart && !self.editor->isWordChar(self.editor->pt.charAt(p - 1))) p--;
             while (p > lineStart && self.editor->isWordChar(self.editor->pt.charAt(p - 1))) p--;
@@ -2109,138 +2182,312 @@
     [self setNeedsDisplay];
 }
 - (UIView *)inputAccessoryView {
-    if (@available(iOS 14.0, *)) {
-        if ([GCKeyboard coalescedKeyboard] != nil) {
-            return nil;
-        }
-    }
     if (_customAccessoryView) return _customAccessoryView;
-    CGFloat barHeight = 36.0;
+    CGFloat barHeight = 44.0;
     _customAccessoryView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 0, barHeight)];
     _customAccessoryView.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+    _customAccessoryView.backgroundColor = [UIColor clearColor];
+
+    UIView *shadowContainer = [[UIView alloc] init];
+    shadowContainer.translatesAutoresizingMaskIntoConstraints = NO;
+    shadowContainer.backgroundColor = [UIColor clearColor];
+    shadowContainer.layer.cornerRadius = 12.0;
+    if (@available(iOS 13.0, *)) {
+        shadowContainer.layer.cornerCurve = kCACornerCurveContinuous;
+    }
+    shadowContainer.layer.shadowColor = [UIColor blackColor].CGColor;
+    shadowContainer.layer.shadowOpacity = 0.20f;
+    shadowContainer.layer.shadowOffset = CGSizeMake(0, 2.0);
+    shadowContainer.layer.shadowRadius = 7.0;
+    [_customAccessoryView addSubview:shadowContainer];
+
     UIBlurEffect *blurEffect = [UIBlurEffect effectWithStyle:UIBlurEffectStyleSystemChromeMaterial];
     UIVisualEffectView *effectView = [[UIVisualEffectView alloc] initWithEffect:blurEffect];
-    effectView.frame = _customAccessoryView.bounds;
-    effectView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    [_customAccessoryView addSubview:effectView];
-    UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:_customAccessoryView.bounds];
-    scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    effectView.translatesAutoresizingMaskIntoConstraints = NO;
+    effectView.layer.cornerRadius = 12.0;
+    if (@available(iOS 13.0, *)) {
+        effectView.layer.cornerCurve = kCACornerCurveContinuous;
+    }
+    effectView.clipsToBounds = YES;
+    effectView.layer.borderWidth = 0.5;
+    effectView.layer.borderColor = [UIColor separatorColor].CGColor;
+    [shadowContainer addSubview:effectView];
+
+    UIScrollView *scrollView = [[UIScrollView alloc] init];
+    scrollView.translatesAutoresizingMaskIntoConstraints = NO;
     scrollView.showsHorizontalScrollIndicator = NO;
-    scrollView.alwaysBounceHorizontal = YES;
+    scrollView.alwaysBounceHorizontal = NO;
     scrollView.scrollsToTop = NO;
-    [_customAccessoryView addSubview:scrollView];
+    [effectView.contentView addSubview:scrollView];
+
     UIStackView *stackView = [[UIStackView alloc] init];
     stackView.axis = UILayoutConstraintAxisHorizontal;
-    stackView.spacing = 1.0;
+    stackView.spacing = 0.0;
     stackView.alignment = UIStackViewAlignmentFill;
     stackView.distribution = UIStackViewDistributionFill;
     stackView.translatesAutoresizingMaskIntoConstraints = NO;
     [scrollView addSubview:stackView];
+
+    NSLayoutConstraint *fitWidthConstraint = [scrollView.widthAnchor constraintEqualToAnchor:stackView.widthAnchor];
+    fitWidthConstraint.priority = UILayoutPriorityDefaultHigh;
+
     [NSLayoutConstraint activateConstraints:@[
+        [shadowContainer.topAnchor constraintEqualToAnchor:_customAccessoryView.topAnchor constant:3.0],
+        [shadowContainer.bottomAnchor constraintEqualToAnchor:_customAccessoryView.bottomAnchor constant:-5.0],
+        [shadowContainer.centerXAnchor constraintEqualToAnchor:_customAccessoryView.centerXAnchor],
+        [shadowContainer.leadingAnchor constraintGreaterThanOrEqualToAnchor:_customAccessoryView.safeAreaLayoutGuide.leadingAnchor constant:6.0],
+        [shadowContainer.trailingAnchor constraintLessThanOrEqualToAnchor:_customAccessoryView.safeAreaLayoutGuide.trailingAnchor constant:-6.0],
+
+        [effectView.topAnchor constraintEqualToAnchor:shadowContainer.topAnchor],
+        [effectView.bottomAnchor constraintEqualToAnchor:shadowContainer.bottomAnchor],
+        [effectView.leadingAnchor constraintEqualToAnchor:shadowContainer.leadingAnchor],
+        [effectView.trailingAnchor constraintEqualToAnchor:shadowContainer.trailingAnchor],
+
+        [scrollView.topAnchor constraintEqualToAnchor:effectView.contentView.topAnchor],
+        [scrollView.bottomAnchor constraintEqualToAnchor:effectView.contentView.bottomAnchor],
+        [scrollView.leadingAnchor constraintEqualToAnchor:effectView.contentView.leadingAnchor],
+        [scrollView.trailingAnchor constraintEqualToAnchor:effectView.contentView.trailingAnchor],
+        fitWidthConstraint,
+
         [stackView.topAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.topAnchor],
         [stackView.bottomAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.bottomAnchor],
         [stackView.leadingAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.leadingAnchor],
         [stackView.trailingAnchor constraintEqualToAnchor:scrollView.contentLayoutGuide.trailingAnchor],
         [stackView.heightAnchor constraintEqualToAnchor:scrollView.frameLayoutGuide.heightAnchor]
     ]];
+
     _accessoryTapGR = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(onAccessoryBackgroundTap:)];
     _accessoryTapGR.cancelsTouchesInView = NO;
     _accessoryTapGR.delegate = self;
     [_customAccessoryView addGestureRecognizer:_accessoryTapGR];
+
     __weak typeof(self) weakSelf = self;
-    auto createBtn = ^UIButton*(NSString *title, SEL action) {
-        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+
+    auto createSeparator = ^UIView*() {
+        UIView *sepContainer = [[UIView alloc] init];
+        sepContainer.translatesAutoresizingMaskIntoConstraints = NO;
+        UIView *line = [[UIView alloc] init];
+        line.translatesAutoresizingMaskIntoConstraints = NO;
+        line.backgroundColor = [UIColor separatorColor];
+        [sepContainer addSubview:line];
+        [NSLayoutConstraint activateConstraints:@[
+            [sepContainer.widthAnchor constraintEqualToConstant:0.5],
+            [line.widthAnchor constraintEqualToConstant:0.5],
+            [line.centerXAnchor constraintEqualToAnchor:sepContainer.centerXAnchor],
+            [line.centerYAnchor constraintEqualToAnchor:sepContainer.centerYAnchor],
+            [line.heightAnchor constraintEqualToAnchor:sepContainer.heightAnchor multiplier:0.55]
+        ]];
+        return sepContainer;
+    };
+
+    auto applyPopupBtnStyle = ^(UIButton *btn, NSString *title, NSString *symbolName) {
         [btn setContentHuggingPriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
         [btn setContentCompressionResistancePriority:UILayoutPriorityRequired forAxis:UILayoutConstraintAxisHorizontal];
         if (@available(iOS 15.0, *)) {
             UIButtonConfiguration *config = [UIButtonConfiguration plainButtonConfiguration];
-            NSDictionary *attributes = @{NSFontAttributeName: [UIFont systemFontOfSize:13 weight:UIFontWeightMedium]};
-            config.attributedTitle = [[NSAttributedString alloc] initWithString:title attributes:attributes];
+            if (title.length > 0) {
+                NSDictionary *attributes = @{NSFontAttributeName: [UIFont systemFontOfSize:12.5 weight:UIFontWeightMedium]};
+                config.attributedTitle = [[NSAttributedString alloc] initWithString:title attributes:attributes];
+            }
+            if (symbolName.length > 0) {
+                CGFloat ptSize = (title.length > 0) ? 11.5 : 13.5;
+                UIImageSymbolConfiguration *symCfg = [UIImageSymbolConfiguration configurationWithPointSize:ptSize weight:UIImageSymbolWeightMedium];
+                config.image = [UIImage systemImageNamed:symbolName withConfiguration:symCfg];
+                config.imagePlacement = NSDirectionalRectEdgeLeading;
+                config.imagePadding = (title.length > 0) ? 3.5 : 0.0;
+            }
             config.baseForegroundColor = [UIColor labelColor];
             config.background.cornerRadius = 0;
-            config.contentInsets = NSDirectionalEdgeInsetsMake(0, 10, 0, 10);
+            CGFloat hInset = (title.length > 0) ? 8.5 : 9.0;
+            config.contentInsets = NSDirectionalEdgeInsetsMake(0, hInset, 0, hInset);
             btn.configuration = config;
             btn.configurationUpdateHandler = ^(UIButton *updatedBtn) {
                 UIButtonConfiguration *updatedConfig = updatedBtn.configuration;
                 if (updatedBtn.isHighlighted) {
                     updatedConfig.background.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
-                        return trait.userInterfaceStyle == UIUserInterfaceStyleDark ? [UIColor colorWithWhite:1.0 alpha:0.3] : [UIColor colorWithWhite:0.0 alpha:0.15];
+                        return trait.userInterfaceStyle == UIUserInterfaceStyleDark
+                            ? [UIColor colorWithWhite:1.0 alpha:0.22]
+                            : [UIColor colorWithWhite:0.0 alpha:0.12];
                     }];
                 } else {
-                    updatedConfig.background.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
-                        return trait.userInterfaceStyle == UIUserInterfaceStyleDark ? [UIColor colorWithWhite:1.0 alpha:0.1] : [UIColor colorWithWhite:0.0 alpha:0.05];
-                    }];
+                    updatedConfig.background.backgroundColor = [UIColor clearColor];
                 }
                 updatedBtn.configuration = updatedConfig;
             };
         } else {
-            [btn setTitle:title forState:UIControlStateNormal];
+            if (title.length > 0) {
+                [btn setTitle:title forState:UIControlStateNormal];
+            }
+            if (symbolName.length > 0) {
+                [btn setImage:[UIImage systemImageNamed:symbolName] forState:UIControlStateNormal];
+            }
             [btn setTitleColor:[UIColor labelColor] forState:UIControlStateNormal];
-            btn.titleLabel.font = [UIFont systemFontOfSize:13 weight:UIFontWeightMedium];
-            btn.backgroundColor = [UIColor colorWithWhite:0.5 alpha:0.2];
-            btn.layer.cornerRadius = 0;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            btn.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
-            btn.showsTouchWhenHighlighted = YES;
-#pragma clang diagnostic pop
+            btn.tintColor = [UIColor labelColor];
+            btn.titleLabel.font = [UIFont systemFontOfSize:12.5 weight:UIFontWeightMedium];
         }
-        [btn addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull uiAction) {
-            __strong typeof(weakSelf) strongSelf = weakSelf;
-            if (!strongSelf) return;
-            if (action == @selector(openRecentDocument:)) {
-                if (strongSelf.onDismissOpenRecentIfVisible && strongSelf.onDismissOpenRecentIfVisible()) {
-                    return;
+    };
+
+    auto invokeEditorAction = ^(SEL action, id senderObj) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        [strongSelf hideHelpIfNeeded];
+        [strongSelf hideEditMenuIfNeeded];
+        void (^fireAction)(void) = ^{
+            __strong typeof(weakSelf) innerSelf = weakSelf;
+            if (!innerSelf) return;
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+            [innerSelf performSelector:action withObject:senderObj];
+#pragma clang diagnostic pop
+        };
+        if (strongSelf.onDismissOpenRecentThenPerform) {
+            strongSelf.onDismissOpenRecentThenPerform(fireAction);
+        } else {
+            fireAction();
+        }
+    };
+
+    auto createMenuAction = ^UIAction*(NSString *title, NSString *symbolName, SEL action) {
+        UIImage *img = (symbolName.length > 0) ? [UIImage systemImageNamed:symbolName] : nil;
+        return [UIAction actionWithTitle:title image:img identifier:nil handler:^(__kindof UIAction * _Nonnull uiAction) {
+            invokeEditorAction(action, uiAction.sender);
+        }];
+    };
+
+    auto createCategoryBtn = ^UIButton*(NSString *title, NSString *symbolName, NSArray<UIMenuElement *> *(^elementsProvider)(void)) {
+        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        applyPopupBtnStyle(btn, title, symbolName);
+        if (@available(iOS 15.0, *)) {
+            UIDeferredMenuElement *deferred = [UIDeferredMenuElement elementWithUncachedProvider:^(void (^ _Nonnull completion)(NSArray<UIMenuElement *> * _Nonnull elements)) {
+                __strong typeof(weakSelf) strongSelf = weakSelf;
+                if (strongSelf) {
+                    [strongSelf hideHelpIfNeeded];
+                    [strongSelf hideEditMenuIfNeeded];
                 }
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                [strongSelf performSelector:action withObject:uiAction.sender];
-#pragma clang diagnostic pop
-                return;
-            }
-            id senderObj = uiAction.sender;
-            void (^fireAction)(void) = ^{
-                __strong typeof(weakSelf) innerSelf = weakSelf;
-                if (!innerSelf) return;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
-                [innerSelf performSelector:action withObject:senderObj];
-#pragma clang diagnostic pop
-            };
-            if (strongSelf.onDismissOpenRecentThenPerform) {
-                strongSelf.onDismissOpenRecentThenPerform(fireAction);
-            } else {
-                fireAction();
-            }
+                completion(elementsProvider ? elementsProvider() : @[]);
+            }];
+            btn.menu = [UIMenu menuWithTitle:@"" children:@[deferred]];
+            btn.showsMenuAsPrimaryAction = YES;
+        } else if (@available(iOS 14.0, *)) {
+            UIDeferredMenuElement *deferred = [UIDeferredMenuElement elementWithProvider:^(void (^ _Nonnull completion)(NSArray<UIMenuElement *> * _Nonnull elements)) {
+                completion(elementsProvider ? elementsProvider() : @[]);
+            }];
+            btn.menu = [UIMenu menuWithTitle:@"" children:@[deferred]];
+            btn.showsMenuAsPrimaryAction = YES;
+        }
+        return btn;
+    };
+
+    auto createIconBtn = ^UIButton*(NSString *symbolName, NSString *accessibilityTitle, SEL action) {
+        UIButton *btn = [UIButton buttonWithType:UIButtonTypeCustom];
+        applyPopupBtnStyle(btn, @"", symbolName);
+        btn.accessibilityLabel = accessibilityTitle;
+        [btn addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull uiAction) {
+            invokeEditorAction(action, uiAction.sender);
         }] forControlEvents:UIControlEventTouchUpInside];
         return btn;
     };
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"New", nil), @selector(newDocument:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Open", nil), @selector(openDocument:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Open Recent", nil), @selector(openRecentDocument:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Save", nil), @selector(saveDocument:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Save As", nil), @selector(saveDocumentAs:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Find", nil), @selector(cmdFind:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Replace", nil), @selector(cmdReplace:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Live Preview", nil), @selector(togglePreviewAction:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Word Wrap", nil), @selector(toggleWordWrapAction:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Toggle Comment", nil), @selector(toggleCommentAction:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Tab", nil), @selector(handleTabKey:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Top", nil), @selector(moveToDocStart:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Bottom", nil), @selector(moveToDocEnd:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Go To", nil), @selector(cmdGoToLine:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Undo", nil), @selector(handleUndo:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Redo", nil), @selector(handleRedo:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Select All", nil), @selector(selectAll:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Cut", nil), @selector(cut:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Copy", nil), @selector(copy:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Paste", nil), @selector(paste:))];
-    [stackView addArrangedSubview:createBtn(@"?", @selector(toggleHelp:))];
-    [stackView addArrangedSubview:createBtn(NSLocalizedString(@"Done", nil), @selector(dismissKeyboard))];
+
+    NSString *helpMenuTitle = @"?";
+    NSString *rawHelpText = NSLocalizedString(@"HelpText_iOS", nil);
+    if (rawHelpText.length > 0) {
+        for (NSString *line in [rawHelpText componentsSeparatedByCharactersInSet:[NSCharacterSet newlineCharacterSet]]) {
+            NSString *trimmed = [line stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            if ([trimmed hasPrefix:@"F1 "]) {
+                NSString *candidate = [[trimmed substringFromIndex:3] stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+                if (candidate.length > 0) {
+                    helpMenuTitle = candidate;
+                    break;
+                }
+            }
+        }
+    }
+
+    UIButton *fileBtn = createCategoryBtn(NSLocalizedString(@"File", nil), @"doc.text", ^NSArray<UIMenuElement *> *{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        UIMenuElement *recentElement = nil;
+        if (strongSelf && strongSelf.onBuildOpenRecentMenu) {
+            recentElement = strongSelf.onBuildOpenRecentMenu();
+        }
+        if (!recentElement) {
+            recentElement = createMenuAction(NSLocalizedString(@"Open Recent", nil), @"clock.arrow.circlepath", @selector(openRecentDocument:));
+        }
+        UIMenu *openGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"New", nil), @"doc.badge.plus", @selector(newDocument:)),
+            createMenuAction(NSLocalizedString(@"Open", nil), @"folder", @selector(openDocument:)),
+            recentElement
+        ]];
+        UIMenu *saveGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Save", nil), @"square.and.arrow.down", @selector(saveDocument:)),
+            createMenuAction(NSLocalizedString(@"Save As", nil), @"square.and.arrow.down.on.square", @selector(saveDocumentAs:))
+        ]];
+        return @[openGroup, saveGroup];
+    });
+
+    UIButton *editBtn = createCategoryBtn(NSLocalizedString(@"Edit", nil), @"pencil", ^NSArray<UIMenuElement *> *{
+        UIMenu *undoGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Undo", nil), @"arrow.uturn.backward", @selector(handleUndo:)),
+            createMenuAction(NSLocalizedString(@"Redo", nil), @"arrow.uturn.forward", @selector(handleRedo:))
+        ]];
+        UIMenu *clipGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Cut", nil), @"scissors", @selector(cut:)),
+            createMenuAction(NSLocalizedString(@"Copy", nil), @"doc.on.doc", @selector(copy:)),
+            createMenuAction(NSLocalizedString(@"Paste", nil), @"doc.on.clipboard", @selector(paste:)),
+            createMenuAction(NSLocalizedString(@"Select All", nil), @"selection.pin.in.out", @selector(selectAll:))
+        ]];
+        UIMenu *codeGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Toggle Comment", nil), @"chevron.left.forwardslash.chevron.right", @selector(toggleCommentAction:))
+        ]];
+        return @[undoGroup, clipGroup, codeGroup];
+    });
+
+    UIButton *findBtn = createCategoryBtn(NSLocalizedString(@"Find", nil), @"magnifyingglass", ^NSArray<UIMenuElement *> *{
+        UIMenu *searchGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Find", nil), @"magnifyingglass", @selector(cmdFind:)),
+            createMenuAction(NSLocalizedString(@"Replace", nil), @"arrow.left.arrow.right", @selector(cmdReplace:))
+        ]];
+        UIMenu *navGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(NSLocalizedString(@"Go To", nil), @"number", @selector(cmdGoToLine:)),
+            createMenuAction(NSLocalizedString(@"Top", nil), @"arrow.up.to.line", @selector(moveToDocStart:)),
+            createMenuAction(NSLocalizedString(@"Bottom", nil), @"arrow.down.to.line", @selector(moveToDocEnd:))
+        ]];
+        return @[searchGroup, navGroup];
+    });
+
+    UIButton *viewBtn = createCategoryBtn(NSLocalizedString(@"View", nil), @"eye", ^NSArray<UIMenuElement *> *{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        UIAction *previewAction = createMenuAction(NSLocalizedString(@"Live Preview", nil), @"rectangle.split.2x1", @selector(togglePreviewAction:));
+        UIAction *wrapAction = createMenuAction(NSLocalizedString(@"Word Wrap", nil), @"arrow.turn.down.left", @selector(toggleWordWrapAction:));
+        if (strongSelf && strongSelf.editor) {
+            previewAction.state = strongSelf.editor->showPreview ? UIMenuElementStateOn : UIMenuElementStateOff;
+            wrapAction.state = strongSelf.editor->wordWrapEnabled ? UIMenuElementStateOn : UIMenuElementStateOff;
+        }
+        UIMenu *modeGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            previewAction,
+            wrapAction
+        ]];
+        UIMenu *helpGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[
+            createMenuAction(helpMenuTitle, @"questionmark.circle", @selector(toggleHelp:))
+        ]];
+        return @[modeGroup, helpGroup];
+    });
+
+    UIButton *undoBtn = createIconBtn(@"arrow.uturn.backward", NSLocalizedString(@"Undo", nil), @selector(handleUndo:));
+    UIButton *redoBtn = createIconBtn(@"arrow.uturn.forward", NSLocalizedString(@"Redo", nil), @selector(handleRedo:));
+    UIButton *tabBtn  = createIconBtn(@"arrow.right.to.line", NSLocalizedString(@"Tab", nil), @selector(handleTabKey:));
+
+    NSArray<UIView *> *buttons = @[fileBtn, editBtn, findBtn, viewBtn, undoBtn, redoBtn, tabBtn];
+    for (NSUInteger i = 0; i < buttons.count; ++i) {
+        if (i > 0) {
+            [stackView addArrangedSubview:createSeparator()];
+        }
+        [stackView addArrangedSubview:buttons[i]];
+    }
     return _customAccessoryView;
 }
 - (void)dismissKeyboard {
     [self resignFirstResponder];
+    [self.window endEditing:YES];
 }
 - (void)checkCaretVisibilityAndDismissKeyboardIfNeeded {
     if (!self.isFirstResponder) return;
@@ -2338,6 +2585,9 @@ static NSString *s_iosClipboardSnapshot = nil;
 @property (nonatomic, strong) MiuIOSPreviewSplitterView *splitterView;
 @property (nonatomic, strong) MiuIOSPreviewMessageHandler *previewMsgHandler;
 @property (nonatomic, strong) NSURL *currentDocumentURL;
+@property (nonatomic, copy) NSString *currentDocumentDisplayName;
+@property (nonatomic, copy) NSString *pendingExportFileName;
+@property (nonatomic, copy) NSString *pendingExportTempFilePath;
 @property (nonatomic, strong) UIStackView *headerStack;
 @property (nonatomic, strong) UIView *titleBarView;
 @property (nonatomic, strong) UILabel *titleLabel;
@@ -2366,50 +2616,55 @@ static NSString *s_iosClipboardSnapshot = nil;
     std::shared_ptr<Editor> _editorEngine;
     BOOL _isFirstLayoutDone;
     NSLayoutConstraint *_editorBottomConstraint;
+    NSLayoutConstraint *_headerTopConstraint;
     BOOL _isExportingDocument;
     CGSize _lastTopFillSize;
     CGRect _lastKeyboardScreenFrame;
     CGRect _lastKeyboardScreenBounds;
     BOOL _isKeyboardVisible;
     BOOL _isTransitioningSize;
+    BOOL _hasLastSplitOrientation;
+    BOOL _lastIsVerticalSplit;
+    float _savedVerticalSplitRatio;
+    float _savedHorizontalSplitRatio;
 }
 - (CGFloat)computeCurrentKeyboardShrinkAmount {
-    if (!self.isViewLoaded || self.view.bounds.size.height <= 0 || !_isKeyboardVisible) return 0.0;
+    if (!self.isViewLoaded || self.view.bounds.size.height <= 0) return 0.0;
     CGFloat shrinkAmount = 0.0;
     UIScreen *screen = self.view.window.windowScene.screen ?: [UIScreen mainScreen];
     CGRect screenBounds = screen ? screen.bounds : self.view.bounds;
-    if (!CGRectIsEmpty(_lastKeyboardScreenFrame) && !CGRectIsNull(_lastKeyboardScreenFrame) &&
-        !CGRectIsEmpty(_lastKeyboardScreenBounds) && !CGRectIsNull(_lastKeyboardScreenBounds) &&
-        CGSizeEqualToSize(_lastKeyboardScreenBounds.size, screenBounds.size) && screen) {
-        CGRect screenIntersection = CGRectIntersection(screenBounds, _lastKeyboardScreenFrame);
-        if (!CGRectIsNull(screenIntersection) && !CGRectIsEmpty(screenIntersection) && screenIntersection.size.height > 0.0) {
-            CGFloat kbHeightOnScreen = screenIntersection.size.height;
-            BOOL viewOrientationMatchesScreen = ((self.view.bounds.size.width >= self.view.bounds.size.height) ==
-                                                 (screenBounds.size.width >= screenBounds.size.height));
-            if (viewOrientationMatchesScreen && !_isTransitioningSize) {
-                CGRect convertedFrame = [self.view convertRect:screenIntersection fromCoordinateSpace:screen.coordinateSpace];
-                CGRect viewIntersection = CGRectIntersection(self.view.bounds, convertedFrame);
-                if (!CGRectIsNull(viewIntersection) && !CGRectIsEmpty(viewIntersection)) {
-                    CGFloat fromNotif = self.view.bounds.size.height - viewIntersection.origin.y;
-                    shrinkAmount = MIN(kbHeightOnScreen, MAX(0.0, fromNotif));
+    if (_isKeyboardVisible) {
+        if (!CGRectIsEmpty(_lastKeyboardScreenFrame) && !CGRectIsNull(_lastKeyboardScreenFrame) &&
+            !CGRectIsEmpty(_lastKeyboardScreenBounds) && !CGRectIsNull(_lastKeyboardScreenBounds) &&
+            CGSizeEqualToSize(_lastKeyboardScreenBounds.size, screenBounds.size) && screen) {
+            CGRect screenIntersection = CGRectIntersection(screenBounds, _lastKeyboardScreenFrame);
+            if (!CGRectIsNull(screenIntersection) && !CGRectIsEmpty(screenIntersection) && screenIntersection.size.height > 0.0) {
+                CGFloat kbHeightOnScreen = screenIntersection.size.height;
+                if (self.view.window != nil && !_isTransitioningSize) {
+                    CGRect convertedFrame = [self.view convertRect:screenIntersection fromCoordinateSpace:screen.coordinateSpace];
+                    CGRect viewIntersection = CGRectIntersection(self.view.bounds, convertedFrame);
+                    if (!CGRectIsNull(viewIntersection) && !CGRectIsEmpty(viewIntersection)) {
+                        CGFloat fromNotif = self.view.bounds.size.height - viewIntersection.origin.y;
+                        shrinkAmount = MIN(kbHeightOnScreen, MAX(0.0, fromNotif));
+                    }
+                } else {
+                    shrinkAmount = kbHeightOnScreen;
                 }
-            } else {
-                shrinkAmount = kbHeightOnScreen;
             }
-        }
-    } else if (!_isTransitioningSize) {
-        if (@available(iOS 15.0, *)) {
-            CGRect guideFrame = self.view.keyboardLayoutGuide.layoutFrame;
-            if (!CGRectIsEmpty(guideFrame) && !CGRectIsNull(guideFrame) &&
-                guideFrame.origin.y > 0.0 && guideFrame.origin.y < self.view.bounds.size.height) {
-                CGFloat fromGuide = self.view.bounds.size.height - guideFrame.origin.y;
-                if (fromGuide > 0.0 && fromGuide <= self.view.bounds.size.height * 0.65) {
-                    shrinkAmount = MAX(shrinkAmount, fromGuide);
+        } else if (!_isTransitioningSize) {
+            if (@available(iOS 15.0, *)) {
+                CGRect guideFrame = self.view.keyboardLayoutGuide.layoutFrame;
+                if (!CGRectIsEmpty(guideFrame) && !CGRectIsNull(guideFrame) &&
+                    guideFrame.origin.y > 0.0 && guideFrame.origin.y < self.view.bounds.size.height) {
+                    CGFloat fromGuide = self.view.bounds.size.height - guideFrame.origin.y;
+                    if (fromGuide > 0.0 && fromGuide <= self.view.bounds.size.height * 0.65) {
+                        shrinkAmount = MAX(shrinkAmount, fromGuide);
+                    }
                 }
             }
         }
     }
-    if (!_isTransitioningSize && shrinkAmount > 0.0 && self.editorView.isFirstResponder) {
+    if (!_isTransitioningSize && (self.editorView.isFirstResponder || _isKeyboardVisible)) {
         UIView *accView = [self.editorView activeAccessoryView];
         if (accView && accView.window && !accView.hidden && accView.alpha > 0.01) {
             UIScreen *accScreen = accView.window.windowScene.screen ?: screen;
@@ -2419,7 +2674,8 @@ static NSString *s_iosClipboardSnapshot = nil;
                 if (!CGRectIsEmpty(accInView) && !CGRectIsNull(accInView) &&
                     accInView.origin.y > 0.0 && accInView.origin.y < self.view.bounds.size.height) {
                     CGFloat fromAcc = self.view.bounds.size.height - accInView.origin.y;
-                    if (fromAcc > shrinkAmount && fromAcc <= shrinkAmount + 44.0) {
+                    CGFloat maxAccDelta = (shrinkAmount > 0.0) ? 56.0 : (self.view.safeAreaInsets.bottom + 60.0);
+                    if (fromAcc > shrinkAmount && fromAcc <= shrinkAmount + maxAccDelta) {
                         shrinkAmount = fromAcc;
                     }
                 }
@@ -2458,6 +2714,14 @@ static NSString *s_iosClipboardSnapshot = nil;
     WKWebViewConfiguration *cfg = [[WKWebViewConfiguration alloc] init];
     WKUserContentController *ucc = [[WKUserContentController alloc] init];
     [ucc addScriptMessageHandler:self.previewMsgHandler name:@"miuPreview"];
+    std::string sbJsStr = std::string("(function(){") + MiuPreview::getPreviewScrollbarJs() + "})();";
+    NSString *sbJsNS = [NSString stringWithUTF8String:sbJsStr.c_str()];
+    if (sbJsNS) {
+        WKUserScript *sbUserScript = [[WKUserScript alloc] initWithSource:sbJsNS
+                                                            injectionTime:WKUserScriptInjectionTimeAtDocumentEnd
+                                                         forMainFrameOnly:YES];
+        [ucc addUserScript:sbUserScript];
+    }
     cfg.userContentController = ucc;
 
     self.previewWebView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:cfg];
@@ -2466,12 +2730,17 @@ static NSString *s_iosClipboardSnapshot = nil;
     self.previewWebView.opaque = YES;
     UIColor *previewBg = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
         return (trait.userInterfaceStyle == UIUserInterfaceStyleDark)
-            ? [UIColor colorWithRed:0.118 green:0.118 blue:0.118 alpha:1.0]
+            ? [UIColor blackColor]
             : [UIColor whiteColor];
     }];
     self.previewWebView.backgroundColor = previewBg;
     self.previewWebView.scrollView.backgroundColor = previewBg;
+    if (@available(iOS 15.0, *)) {
+        self.previewWebView.underPageBackgroundColor = previewBg;
+    }
     self.previewWebView.scrollView.scrollsToTop = NO;
+    self.previewWebView.scrollView.showsVerticalScrollIndicator = NO;
+    self.previewWebView.scrollView.showsHorizontalScrollIndicator = NO;
     self.previewWebView.hidden = YES;
     [self.workspaceContainer addSubview:self.previewWebView];
 
@@ -2482,6 +2751,11 @@ static NSString *s_iosClipboardSnapshot = nil;
     self.splitterView.onRatioChanged = ^{
         __strong typeof(self) strongSelf = weakSelf;
         if (!strongSelf || !strongSelf->_editorEngine) return;
+        if (strongSelf.splitterView.isVerticalSplit) {
+            strongSelf->_savedVerticalSplitRatio = strongSelf->_editorEngine->previewSplitRatio;
+        } else {
+            strongSelf->_savedHorizontalSplitRatio = strongSelf->_editorEngine->previewSplitRatio;
+        }
         [strongSelf layoutSplitViews];
         strongSelf->_editorEngine->updateScrollBars();
         [strongSelf.editorView setNeedsDisplay];
@@ -2499,6 +2773,19 @@ static NSString *s_iosClipboardSnapshot = nil;
     } else {
         [self ensurePreviewViewsCreated];
         BOOL verticalSplit = (cb.size.width < 600.0 && cb.size.height > cb.size.width);
+        if (!_hasLastSplitOrientation) {
+            _hasLastSplitOrientation = YES;
+            _lastIsVerticalSplit = verticalSplit;
+        } else if (_lastIsVerticalSplit != verticalSplit) {
+            if (_lastIsVerticalSplit) {
+                _savedVerticalSplitRatio = _editorEngine->previewSplitRatio;
+                _editorEngine->previewSplitRatio = _savedHorizontalSplitRatio;
+            } else {
+                _savedHorizontalSplitRatio = _editorEngine->previewSplitRatio;
+                _editorEngine->previewSplitRatio = _savedVerticalSplitRatio;
+            }
+            _lastIsVerticalSplit = verticalSplit;
+        }
         self.splitterView.isVerticalSplit = verticalSplit;
         if (!verticalSplit) {
             CGFloat splitW = 8.0;
@@ -2571,8 +2858,208 @@ static NSString *s_iosClipboardSnapshot = nil;
         }
     }
 }
+- (NSString *)savedDisplayNameForPath:(NSString *)path {
+    if (!path || path.length == 0) return nil;
+    NSDictionary *dict = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"MiuRecentDisplayNames"];
+    NSString *saved = dict[path];
+    if (saved && saved.length > 0 && !MiuIsLikelyTemporaryGuidFileName(saved.UTF8String)) {
+        return saved;
+    }
+    return nil;
+}
+- (void)saveDisplayName:(NSString *)displayName forPath:(NSString *)path {
+    if (!path || path.length == 0 || !displayName || displayName.length == 0) return;
+    if (MiuIsLikelyTemporaryGuidFileName(displayName.UTF8String)) return;
+    NSDictionary *existing = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"MiuRecentDisplayNames"];
+    NSMutableDictionary *dict = existing ? [existing mutableCopy] : [NSMutableDictionary dictionary];
+    dict[path] = displayName;
+    [[NSUserDefaults standardUserDefaults] setObject:dict forKey:@"MiuRecentDisplayNames"];
+}
+- (NSURL *)resolveDocumentURL:(NSURL *)url fallbackName:(NSString *)fallbackName outDisplayName:(NSString * __autoreleasing *)outDisplayName {
+    if (!url) return nil;
+    [url removeAllCachedResourceValues];
+    std::vector<std::string> candidates;
+    auto addCandidate = [&](NSString *str) {
+        if (str && str.length > 0 && str.UTF8String) {
+            candidates.push_back(std::string(str.UTF8String));
+        }
+    };
+
+    NSDictionary<NSURLResourceKey, id> *promised = [url promisedItemResourceValuesForKeys:@[NSURLNameKey, NSURLLocalizedNameKey] error:nil];
+    if ([promised[NSURLNameKey] isKindOfClass:[NSString class]]) {
+        addCandidate(promised[NSURLNameKey]);
+    }
+    if ([promised[NSURLLocalizedNameKey] isKindOfClass:[NSString class]]) {
+        addCandidate(promised[NSURLLocalizedNameKey]);
+    }
+
+    NSString *urlName = nil;
+    if ([url getResourceValue:&urlName forKey:NSURLNameKey error:nil]) {
+        addCandidate(urlName);
+    }
+    NSString *localizedName = nil;
+    if ([url getResourceValue:&localizedName forKey:NSURLLocalizedNameKey error:nil]) {
+        addCandidate(localizedName);
+    }
+
+    __block NSURL *bestURL = url;
+    __block NSString *coordUrlName = nil;
+    __block NSString *coordLocalizedName = nil;
+    __block NSString *coordLastComponent = nil;
+    NSFileManager *fm = [NSFileManager defaultManager];
+    BOOL originalFileExists = (url.path.length > 0 && [fm fileExistsAtPath:url.path]);
+    NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+    [coordinator coordinateReadingItemAtURL:url options:NSFileCoordinatorReadingWithoutChanges error:nil byAccessor:^(NSURL * _Nonnull newURL) {
+        if (!newURL) return;
+        [newURL removeAllCachedResourceValues];
+        NSString *uName = nil;
+        if ([newURL getResourceValue:&uName forKey:NSURLNameKey error:nil]) {
+            coordUrlName = uName;
+        }
+        NSString *lName = nil;
+        if ([newURL getResourceValue:&lName forKey:NSURLLocalizedNameKey error:nil]) {
+            coordLocalizedName = lName;
+        }
+        coordLastComponent = newURL.lastPathComponent;
+        if (!originalFileExists &&
+            coordLastComponent.length > 0 &&
+            !MiuIsLikelyTemporaryGuidFileName(coordLastComponent.UTF8String) &&
+            newURL.path.length > 0 &&
+            [fm fileExistsAtPath:newURL.path]) {
+            bestURL = newURL;
+        }
+    }];
+    addCandidate(coordUrlName);
+    addCandidate(coordLocalizedName);
+    addCandidate(coordLastComponent);
+
+    UIDocument *probeDoc = [[UIDocument alloc] initWithFileURL:url];
+    if (probeDoc.localizedName.length > 0) {
+        addCandidate(probeDoc.localizedName);
+    }
+    addCandidate(url.lastPathComponent);
+
+    NSString *rawLast = url.lastPathComponent;
+    if (rawLast.length > 0 && MiuIsLikelyTemporaryGuidFileName(rawLast.UTF8String)) {
+        NSURL *parentDir = [url URLByDeletingLastPathComponent];
+        NSString *parentName = parentDir.lastPathComponent;
+        if (parentName.length > 0 &&
+            [parentName pathExtension].length > 0 &&
+            ![parentName isEqualToString:@"File Provider Storage"] &&
+            !MiuIsLikelyTemporaryGuidFileName(parentName.UTF8String)) {
+            addCandidate(parentName);
+        }
+        if (parentDir && parentDir.path.length > 0) {
+            if (!originalFileExists) {
+                for (const auto& cand : candidates) {
+                    if (!cand.empty() && !MiuIsLikelyTemporaryGuidFileName(cand)) {
+                        NSString *candNS = [NSString stringWithUTF8String:cand.c_str()];
+                        if (candNS.length > 0) {
+                            NSURL *siblingURL = [parentDir URLByAppendingPathComponent:candNS];
+                            if (siblingURL.path && [fm fileExistsAtPath:siblingURL.path]) {
+                                bestURL = siblingURL;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            BOOL hasNonGuidCandidate = NO;
+            for (const auto& cand : candidates) {
+                if (!cand.empty() && !MiuIsLikelyTemporaryGuidFileName(cand)) {
+                    hasNonGuidCandidate = YES;
+                    break;
+                }
+            }
+            if (!hasNonGuidCandidate && _isExportingDocument) {
+                NSArray<NSURL *> *dirContents = [fm contentsOfDirectoryAtURL:parentDir
+                                                  includingPropertiesForKeys:@[NSURLContentModificationDateKey, NSURLIsRegularFileKey]
+                                                                     options:NSDirectoryEnumerationSkipsHiddenFiles
+                                                                       error:nil];
+                NSURL *recentSibling = nil;
+                NSDate *recentDate = nil;
+                for (NSURL *itemURL in dirContents) {
+                    NSNumber *isReg = nil;
+                    [itemURL getResourceValue:&isReg forKey:NSURLIsRegularFileKey error:nil];
+                    if (isReg && !isReg.boolValue) continue;
+                    NSString *itemName = itemURL.lastPathComponent;
+                    if (itemName.length == 0 || MiuIsLikelyTemporaryGuidFileName(itemName.UTF8String)) continue;
+                    NSDate *modDate = nil;
+                    [itemURL getResourceValue:&modDate forKey:NSURLContentModificationDateKey error:nil];
+                    if (modDate && fabs([modDate timeIntervalSinceNow]) <= 15.0) {
+                        if (!recentDate || [modDate compare:recentDate] == NSOrderedDescending) {
+                            recentDate = modDate;
+                            recentSibling = itemURL;
+                        }
+                    }
+                }
+                if (recentSibling) {
+                    addCandidate(recentSibling.lastPathComponent);
+                    if (!originalFileExists) {
+                        bestURL = recentSibling;
+                    }
+                    hasNonGuidCandidate = YES;
+                }
+                if (!hasNonGuidCandidate && fallbackName.length > 0 && !MiuIsLikelyTemporaryGuidFileName(fallbackName.UTF8String)) {
+                    NSURL *fallbackSibling = [parentDir URLByAppendingPathComponent:fallbackName];
+                    if (fallbackSibling.path && [fm fileExistsAtPath:fallbackSibling.path]) {
+                        addCandidate(fallbackName);
+                        if (!originalFileExists) {
+                            bestURL = fallbackSibling;
+                        }
+                        hasNonGuidCandidate = YES;
+                    }
+                }
+            }
+        }
+    }
+
+    NSString *savedName = (url.path.length > 0) ? [self savedDisplayNameForPath:url.path] : nil;
+    NSString *effectiveFallback = (fallbackName.length > 0) ? fallbackName : savedName;
+    std::string fallbackUtf8 = (effectiveFallback && effectiveFallback.UTF8String) ? std::string(effectiveFallback.UTF8String) : "";
+    NSString *localizedUntitled = NSLocalizedString(@"Untitled", @"新規ファイル名");
+    std::string untitledUtf8 = (localizedUntitled && localizedUntitled.UTF8String) ? std::string(localizedUntitled.UTF8String) : "Untitled";
+    std::string resolvedUtf8 = MiuResolveDisplayFileName(candidates, fallbackUtf8, untitledUtf8);
+    NSString *resolvedNS = [NSString stringWithUTF8String:resolvedUtf8.c_str()] ?: localizedUntitled;
+    if (outDisplayName) {
+        *outDisplayName = resolvedNS;
+    }
+    return bestURL ?: url;
+}
+- (NSString *)displayFileNameForPath:(NSString *)fullPath {
+    if (self.currentDocumentDisplayName.length > 0 &&
+        !MiuIsLikelyTemporaryGuidFileName(self.currentDocumentDisplayName.UTF8String)) {
+        return self.currentDocumentDisplayName;
+    }
+    NSString *saved = [self savedDisplayNameForPath:fullPath];
+    if (saved.length > 0) {
+        return saved;
+    }
+    if (self.currentDocumentURL) {
+        NSString *resolved = nil;
+        [self resolveDocumentURL:self.currentDocumentURL fallbackName:self.pendingExportFileName outDisplayName:&resolved];
+        if (resolved.length > 0 && !MiuIsLikelyTemporaryGuidFileName(resolved.UTF8String)) {
+            self.currentDocumentDisplayName = resolved;
+            return resolved;
+        }
+    }
+    std::vector<std::string> candidates;
+    if (fullPath.length > 0 && fullPath.UTF8String) {
+        candidates.push_back(std::string(fullPath.UTF8String));
+    }
+    std::string fallbackUtf8 = (self.pendingExportFileName && self.pendingExportFileName.UTF8String)
+        ? std::string(self.pendingExportFileName.UTF8String)
+        : "";
+    NSString *localizedUntitled = NSLocalizedString(@"Untitled", @"新規ファイル名");
+    std::string untitledUtf8 = (localizedUntitled && localizedUntitled.UTF8String) ? std::string(localizedUntitled.UTF8String) : "Untitled";
+    std::string resolvedUtf8 = MiuResolveDisplayFileName(candidates, fallbackUtf8, untitledUtf8);
+    return [NSString stringWithUTF8String:resolvedUtf8.c_str()] ?: localizedUntitled;
+}
 - (void)saveBookmarkForURL:(NSURL *)url {
     if (!url || !url.path) return;
+    if (self.currentDocumentDisplayName.length > 0) {
+        [self saveDisplayName:self.currentDocumentDisplayName forPath:url.path];
+    }
     NSData *bm = [url bookmarkDataWithOptions:0 includingResourceValuesForKeys:nil relativeToURL:nil error:nil];
     if (!bm) return;
     NSDictionary *existing = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"MiuRecentBookmarks"];
@@ -2582,13 +3069,12 @@ static NSString *s_iosClipboardSnapshot = nil;
 }
 - (void)openRecentFileAtPath:(const std::string &)path {
     if (!_editorEngine) return;
-    if (self.currentDocumentURL) {
-        [self.currentDocumentURL stopAccessingSecurityScopedResource];
-        self.currentDocumentURL = nil;
-    }
     NSString *nsPath = [NSString stringWithUTF8String:path.c_str()];
+    NSString *savedName = [self savedDisplayNameForPath:nsPath];
     NSURL *targetURL = nsPath ? [NSURL fileURLWithPath:nsPath] : nil;
+    NSURL *scopedURL = nil;
     BOOL accessGranted = NO;
+    BOOL bookmarkWasStale = NO;
     if (nsPath) {
         NSDictionary *dict = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"MiuRecentBookmarks"];
         NSData *bm = dict[nsPath];
@@ -2597,24 +3083,88 @@ static NSString *s_iosClipboardSnapshot = nil;
             NSURL *resolved = [NSURL URLByResolvingBookmarkData:bm options:0 relativeToURL:nil bookmarkDataIsStale:&isStale error:nil];
             if (resolved) {
                 targetURL = resolved;
-                accessGranted = [targetURL startAccessingSecurityScopedResource];
-                if (isStale) {
-                    [self saveBookmarkForURL:targetURL];
-                }
+                scopedURL = resolved;
+                accessGranted = [scopedURL startAccessingSecurityScopedResource];
+                bookmarkWasStale = isStale;
             }
         }
     }
     if (!accessGranted && targetURL) {
-        accessGranted = [targetURL startAccessingSecurityScopedResource];
+        scopedURL = targetURL;
+        accessGranted = [scopedURL startAccessingSecurityScopedResource];
     }
-    self.currentDocumentURL = accessGranted ? targetURL : nil;
+    NSString *resolvedDisplayName = nil;
+    if (targetURL) {
+        NSURL *resolvedURL = [self resolveDocumentURL:targetURL fallbackName:savedName outDisplayName:&resolvedDisplayName];
+        if (resolvedURL && resolvedURL != targetURL) {
+            BOOL resolvedAccess = [resolvedURL startAccessingSecurityScopedResource];
+            if (resolvedAccess) {
+                if (accessGranted && scopedURL && scopedURL != self.currentDocumentURL) {
+                    [scopedURL stopAccessingSecurityScopedResource];
+                }
+                scopedURL = resolvedURL;
+                accessGranted = YES;
+                targetURL = resolvedURL;
+            } else if (resolvedURL.path.length > 0 && [[NSFileManager defaultManager] isReadableFileAtPath:resolvedURL.path]) {
+                targetURL = resolvedURL;
+            }
+        }
+    }
     std::string actualPath = (targetURL && targetURL.path) ? std::string(targetURL.path.UTF8String) : path;
     [self.editorView unmarkText];
     [self.editorView.inputDelegate selectionWillChange:self.editorView];
     [self.editorView.inputDelegate textWillChange:self.editorView];
     bool success = _editorEngine->openFileFromPath(actualPath);
-    if (success && self.searchField.text.length > 0) {
-        _editorEngine->searchQuery = self.searchField.text.UTF8String;
+    if (!success && targetURL) {
+        __block bool coordSuccess = false;
+        __block std::string coordOpenedPath;
+        NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+        [coordinator coordinateReadingItemAtURL:targetURL options:NSFileCoordinatorReadingWithoutChanges error:nil byAccessor:^(NSURL * _Nonnull newURL) {
+            if (newURL && newURL.path.length > 0) {
+                coordOpenedPath = std::string(newURL.path.UTF8String);
+                coordSuccess = _editorEngine->openFileFromPath(coordOpenedPath);
+            }
+        }];
+        if (coordSuccess) {
+            success = true;
+            if (coordOpenedPath != actualPath && !actualPath.empty()) {
+                _editorEngine->currentFilePath = UTF8ToW(actualPath);
+                _editorEngine->addToRecentFiles(actualPath);
+            }
+        }
+    }
+    if (success) {
+        if (self.currentDocumentURL && self.currentDocumentURL != scopedURL) {
+            [self.currentDocumentURL stopAccessingSecurityScopedResource];
+        }
+        self.currentDocumentURL = accessGranted ? scopedURL : nil;
+        self.currentDocumentDisplayName = resolvedDisplayName ?: savedName;
+        if (self.currentDocumentDisplayName.length > 0) {
+            if (nsPath.length > 0) {
+                [self saveDisplayName:self.currentDocumentDisplayName forPath:nsPath];
+            }
+            if (targetURL && targetURL.path.length > 0) {
+                [self saveDisplayName:self.currentDocumentDisplayName forPath:targetURL.path];
+            }
+            _editorEngine->loadSyntaxForExtension(self.currentDocumentDisplayName.UTF8String);
+        }
+        if (bookmarkWasStale && scopedURL) {
+            [self saveBookmarkForURL:scopedURL];
+        }
+        if (self.searchField.text.length > 0) {
+            _editorEngine->searchQuery = self.searchField.text.UTF8String;
+        }
+        _editorEngine->updateTitleBar();
+    } else {
+        if (accessGranted && scopedURL && scopedURL != self.currentDocumentURL) {
+            [scopedURL stopAccessingSecurityScopedResource];
+        }
+        auto &rf = _editorEngine->recentFiles;
+        rf.erase(std::remove(rf.begin(), rf.end(), path), rf.end());
+        if (actualPath != path) {
+            rf.erase(std::remove(rf.begin(), rf.end(), actualPath), rf.end());
+        }
+        _editorEngine->saveRecentFiles();
     }
     [self.editorView.inputDelegate textDidChange:self.editorView];
     [self.editorView.inputDelegate selectionDidChange:self.editorView];
@@ -2677,7 +3227,7 @@ static NSString *s_iosClipboardSnapshot = nil;
         for (const auto& path : _editorEngine->recentFiles) {
             NSString *nsPath = [NSString stringWithUTF8String:path.c_str()];
             if (!nsPath || nsPath.length == 0) continue;
-            NSString *displayTitle = [nsPath lastPathComponent];
+            NSString *displayTitle = [self savedDisplayNameForPath:nsPath] ?: [nsPath lastPathComponent];
             [sheet addAction:[UIAlertAction actionWithTitle:displayTitle style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
                 __strong typeof(self) strongSelf = weakSelf;
                 if (!strongSelf || !strongSelf->_editorEngine) return;
@@ -2691,6 +3241,7 @@ static NSString *s_iosClipboardSnapshot = nil;
             if (strongSelf && strongSelf->_editorEngine) {
                 strongSelf->_editorEngine->clearRecentFiles();
                 [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"MiuRecentBookmarks"];
+                [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"MiuRecentDisplayNames"];
             }
         }]];
     }
@@ -2725,6 +3276,12 @@ static NSString *s_iosClipboardSnapshot = nil;
 }
 - (void)performNewDocument {
     if (!_editorEngine) return;
+    if (self.currentDocumentURL) {
+        [self.currentDocumentURL stopAccessingSecurityScopedResource];
+        self.currentDocumentURL = nil;
+    }
+    self.currentDocumentDisplayName = nil;
+    self.pendingExportFileName = nil;
     [self.editorView unmarkText];
     [self.editorView.inputDelegate selectionWillChange:self.editorView];
     [self.editorView.inputDelegate textWillChange:self.editorView];
@@ -2795,6 +3352,10 @@ static NSString *s_iosClipboardSnapshot = nil;
     _lastKeyboardScreenBounds = CGRectNull;
     _isKeyboardVisible = NO;
     _isTransitioningSize = NO;
+    _hasLastSplitOrientation = NO;
+    _lastIsVerticalSplit = NO;
+    _savedVerticalSplitRatio = 0.5f;
+    _savedHorizontalSplitRatio = 0.5f;
     self.view.backgroundColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
         return (trait.userInterfaceStyle == UIUserInterfaceStyleDark) ? [UIColor blackColor] : [UIColor systemBackgroundColor];
     }];
@@ -2806,6 +3367,7 @@ static NSString *s_iosClipboardSnapshot = nil;
     self.titleBarView = [[UIView alloc] init];
     self.titleBarView.translatesAutoresizingMaskIntoConstraints = NO;
     self.titleBarView.backgroundColor = [UIColor clearColor];
+    self.titleBarView.clipsToBounds = YES;
     [self.headerStack addArrangedSubview:self.titleBarView];
     UIStackView *titleStack = [[UIStackView alloc] init];
     titleStack.axis = UILayoutConstraintAxisHorizontal;
@@ -2860,27 +3422,33 @@ static NSString *s_iosClipboardSnapshot = nil;
     }];
     [self.workspaceContainer addSubview:self.editorView];
 
+    UIColor *scrollBarThumbColor = [UIColor colorWithDynamicProvider:^UIColor *(UITraitCollection *trait) {
+        return (trait.userInterfaceStyle == UIUserInterfaceStyleDark)
+            ? [UIColor colorWithWhite:1.0 alpha:0.42]
+            : [UIColor colorWithWhite:0.0 alpha:0.38];
+    }];
     self.verticalScrollBar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.verticalScrollBar.backgroundColor = [UIColor colorWithWhite:0.5 alpha:0.4];
-    self.verticalScrollBar.layer.cornerRadius = 1.5;
+    self.verticalScrollBar.backgroundColor = scrollBarThumbColor;
+    self.verticalScrollBar.layer.cornerRadius = 3.0;
     self.verticalScrollBar.userInteractionEnabled = NO;
     [self.editorView addSubview:self.verticalScrollBar];
 
     self.horizontalScrollBar = [[UIView alloc] initWithFrame:CGRectZero];
-    self.horizontalScrollBar.backgroundColor = [UIColor colorWithWhite:0.5 alpha:0.4];
-    self.horizontalScrollBar.layer.cornerRadius = 1.5;
+    self.horizontalScrollBar.backgroundColor = scrollBarThumbColor;
+    self.horizontalScrollBar.layer.cornerRadius = 3.0;
     self.horizontalScrollBar.userInteractionEnabled = NO;
     [self.editorView addSubview:self.horizontalScrollBar];
 
     UILayoutGuide *safeArea = self.view.safeAreaLayoutGuide;
     _editorBottomConstraint = [self.workspaceContainer.bottomAnchor constraintEqualToAnchor:self.footerStack.topAnchor];
+    _headerTopConstraint = [self.headerStack.topAnchor constraintEqualToAnchor:safeArea.topAnchor constant:-12];
     self.footerBottomConstraint = [self.footerStack.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor];
     [NSLayoutConstraint activateConstraints:@[
         [self.topFillView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
         [self.topFillView.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.topFillView.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.topFillView.bottomAnchor constraintEqualToAnchor:self.headerStack.bottomAnchor constant:10],
-        [self.headerStack.topAnchor constraintEqualToAnchor:safeArea.topAnchor constant:-12],
+        _headerTopConstraint,
         [self.headerStack.leadingAnchor constraintEqualToAnchor:self.view.leadingAnchor],
         [self.headerStack.trailingAnchor constraintEqualToAnchor:self.view.trailingAnchor],
         [self.titleBarView.heightAnchor constraintEqualToConstant:17],
@@ -2900,7 +3468,7 @@ static NSString *s_iosClipboardSnapshot = nil;
     _editorEngine = std::make_shared<Editor>();
     NSDictionary *infoDict = [[NSBundle mainBundle] infoDictionary];
     NSString *appVersion = infoDict[@"CFBundleShortVersionString"];
-    if (!appVersion) appVersion = @"1.0.44";
+    if (!appVersion) appVersion = @"1.0.48";
     NSString *versionString = [NSString stringWithFormat:@"miu v%@", appVersion];
     _editorEngine->appVersionStr = UTF8ToW([versionString UTF8String]);
     NSString *localizedHelp = NSLocalizedString(@"HelpText_iOS", nil);
@@ -2915,8 +3483,11 @@ static NSString *s_iosClipboardSnapshot = nil;
                 if (!strongSelf->_editorEngine->currentFilePath.empty()) {
                     std::string utf8Name = WToUTF8(strongSelf->_editorEngine->currentFilePath);
                     NSString *fullPath = [NSString stringWithUTF8String:utf8Name.c_str()];
-                    fileName = [fullPath lastPathComponent];
-                    NSURL *fileURL = [NSURL fileURLWithPath:fullPath];
+                    fileName = [strongSelf displayFileNameForPath:fullPath];
+                    NSURL *fileURL = strongSelf.currentDocumentURL ?: [NSURL fileURLWithPath:fullPath];
+                    if (fileURL && MiuIsLikelyTemporaryGuidFileName(fileURL.lastPathComponent.UTF8String) && fileName.length > 0) {
+                        fileURL = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingPathComponent:fileName]];
+                    }
                     UIDocumentInteractionController *docController = [UIDocumentInteractionController interactionControllerWithURL:fileURL];
                     if (docController.icons.count > 0) {
                         iconImage = docController.icons.lastObject;
@@ -2930,6 +3501,27 @@ static NSString *s_iosClipboardSnapshot = nil;
                 strongSelf.titleIconView.hidden = (iconImage == nil);
             }
         });
+    };
+    _editorEngine->cbCoordinateWriteFile = [weakSelf](const std::string& utf8Path, const std::string& rawBytes) -> bool {
+        __strong typeof(self) strongSelf = weakSelf;
+        if (!strongSelf) return false;
+        NSString *nsPath = [NSString stringWithUTF8String:utf8Path.c_str()];
+        NSURL *targetURL = strongSelf.currentDocumentURL;
+        if (!targetURL && nsPath.length > 0) {
+            targetURL = [NSURL fileURLWithPath:nsPath];
+        }
+        if (!targetURL) return false;
+        NSData *data = [NSData dataWithBytes:rawBytes.data() length:rawBytes.size()];
+        __block BOOL writeSuccess = NO;
+        NSError *coordError = nil;
+        NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+        [coordinator coordinateWritingItemAtURL:targetURL options:NSFileCoordinatorWritingForReplacing error:&coordError byAccessor:^(NSURL * _Nonnull newURL) {
+            writeSuccess = [data writeToURL:newURL options:0 error:nil];
+            if (!writeSuccess) {
+                writeSuccess = [data writeToURL:newURL options:NSDataWritingAtomic error:nil];
+            }
+        }];
+        return writeSuccess ? true : false;
     };
     _editorEngine->cbNeedsDisplay = [weakSelf]() {
         __strong typeof(self) strongSelf = weakSelf;
@@ -2985,7 +3577,7 @@ static NSString *s_iosClipboardSnapshot = nil;
                         : strongSelf->_editorEngine->vScrollPos;
                     float scrollRatio = std::clamp((float)currentV / (float)maxV, 0.0f, 1.0f);
                     float barY = topMargin + scrollRatio * MAX(0.0f, vh - barHeight);
-                    strongSelf.verticalScrollBar.frame = CGRectMake(vw - 5.0f, barY, 3.0f, barHeight);
+                    strongSelf.verticalScrollBar.frame = CGRectMake(vw - 10.0f, barY, 6.0f, barHeight);
                 }
                 float editorVw = L.textAreaW;
                 float maxOffsetX = std::max(0.0f, strongSelf->_editorEngine->maxLineWidth - editorVw);
@@ -2998,7 +3590,7 @@ static NSString *s_iosClipboardSnapshot = nil;
                     float currentOffsetX = (float)strongSelf->_editorEngine->hScrollPos;
                     float scrollRatio = std::clamp(currentOffsetX / maxOffsetX, 0.0f, 1.0f);
                     float barX = strongSelf->_editorEngine->gutterWidth + scrollRatio * MAX(0.0f, editorVw - barWidth);
-                    strongSelf.horizontalScrollBar.frame = CGRectMake(barX, strongSelf.editorView.bounds.size.height - 5.0f, barWidth, 3.0f);
+                    strongSelf.horizontalScrollBar.frame = CGRectMake(barX, strongSelf.editorView.bounds.size.height - 10.0f, barWidth, 6.0f);
                 }
             }
         });
@@ -3088,6 +3680,63 @@ static NSString *s_iosClipboardSnapshot = nil;
     };
     self.editorView.onOpenRecentAction = ^(UIView *sourceView) {
         [weakSelf presentOpenRecentMenuFromView:sourceView];
+    };
+    self.editorView.onBuildOpenRecentMenu = ^UIMenu *{
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf || !strongSelf->_editorEngine) {
+            return [UIMenu menuWithTitle:NSLocalizedString(@"Open Recent", nil) children:@[]];
+        }
+        strongSelf->_editorEngine->loadRecentFiles();
+        NSMutableArray<UIMenuElement *> *recentItems = [NSMutableArray array];
+        if (strongSelf->_editorEngine->recentFiles.empty()) {
+            UIAction *emptyAction = [UIAction actionWithTitle:NSLocalizedString(@"No Recent Files", nil)
+                                                        image:[UIImage systemImageNamed:@"doc"]
+                                                   identifier:nil
+                                                      handler:^(__kindof UIAction * _Nonnull action) {}];
+            emptyAction.attributes = UIMenuElementAttributesDisabled;
+            [recentItems addObject:emptyAction];
+        } else {
+            NSMutableArray<UIAction *> *fileActions = [NSMutableArray array];
+            for (const auto& path : strongSelf->_editorEngine->recentFiles) {
+                NSString *nsPath = [NSString stringWithUTF8String:path.c_str()];
+                if (!nsPath || nsPath.length == 0) continue;
+                NSString *displayTitle = [strongSelf savedDisplayNameForPath:nsPath] ?: [nsPath lastPathComponent];
+                std::string capturedPath = path;
+                UIAction *fileAction = [UIAction actionWithTitle:displayTitle
+                                                           image:[UIImage systemImageNamed:@"doc.text"]
+                                                      identifier:nil
+                                                         handler:^(__kindof UIAction * _Nonnull action) {
+                    __strong typeof(weakSelf) innerSelf = weakSelf;
+                    if (!innerSelf || !innerSelf->_editorEngine) return;
+                    [innerSelf confirmSaveIfNeededWithAction:^{
+                        [innerSelf openRecentFileAtPath:capturedPath];
+                    }];
+                }];
+                [fileActions addObject:fileAction];
+            }
+            UIMenu *filesGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:fileActions];
+            [recentItems addObject:filesGroup];
+
+            UIAction *clearAction = [UIAction actionWithTitle:NSLocalizedString(@"Clear Menu", nil)
+                                                        image:[UIImage systemImageNamed:@"trash"]
+                                                   identifier:nil
+                                                      handler:^(__kindof UIAction * _Nonnull action) {
+                __strong typeof(weakSelf) innerSelf = weakSelf;
+                if (innerSelf && innerSelf->_editorEngine) {
+                    innerSelf->_editorEngine->clearRecentFiles();
+                    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"MiuRecentBookmarks"];
+                    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"MiuRecentDisplayNames"];
+                }
+            }];
+            clearAction.attributes = UIMenuElementAttributesDestructive;
+            UIMenu *clearGroup = [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[clearAction]];
+            [recentItems addObject:clearGroup];
+        }
+        return [UIMenu menuWithTitle:NSLocalizedString(@"Open Recent", nil)
+                               image:[UIImage systemImageNamed:@"clock.arrow.circlepath"]
+                          identifier:nil
+                             options:0
+                            children:recentItems];
     };
     self.editorView.onDismissOpenRecentIfVisible = ^BOOL{
         __strong typeof(weakSelf) strongSelf = weakSelf;
@@ -3242,11 +3891,28 @@ static NSString *s_iosClipboardSnapshot = nil;
     if (self.scrollToTopHelper) {
         self.scrollToTopHelper.contentSize = CGSizeMake(self.view.bounds.size.width, 2000);
     }
-    BOOL hideTitleBar = (self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact) || (self.view.bounds.size.height < 480.0);
+    CGFloat safeTop = self.view.safeAreaInsets.top;
+    if (safeTop == 0 && self.view.window) {
+        CGPoint originInWin = [self.view convertPoint:CGPointZero toView:self.view.window];
+        if (originInWin.y <= 1.0) {
+            safeTop = self.view.window.safeAreaInsets.top;
+        }
+    }
+    BOOL hideTitleBar = (self.traitCollection.verticalSizeClass == UIUserInterfaceSizeClassCompact && safeTop < 18.0) || (self.view.bounds.size.height < 340.0);
+    self.titleBarView.hidden = hideTitleBar;
     for (NSLayoutConstraint *c in self.titleBarView.constraints) {
         if (c.firstAttribute == NSLayoutAttributeHeight && c.relation == NSLayoutRelationEqual) {
             c.constant = hideTitleBar ? 0 : 17;
             break;
+        }
+    }
+    if (_headerTopConstraint) {
+        if (safeTop >= 44.0) {
+            _headerTopConstraint.constant = -12.0;
+        } else if (safeTop >= 18.0) {
+            _headerTopConstraint.constant = -2.0;
+        } else {
+            _headerTopConstraint.constant = 4.0;
         }
     }
     CGFloat desiredShrink = [self computeCurrentKeyboardShrinkAmount];
@@ -3255,20 +3921,13 @@ static NSString *s_iosClipboardSnapshot = nil;
         [self.workspaceContainer layoutIfNeeded];
     }
     if (_editorEngine) {
-        CGFloat safeTop = self.view.safeAreaInsets.top;
-        if (safeTop == 0) {
-            UIWindow *firstWindow = nil;
-            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-                if ([scene isKindOfClass:[UIWindowScene class]]) {
-                    firstWindow = ((UIWindowScene *)scene).windows.firstObject;
-                    if (firstWindow) break;
-                }
-            }
-            if (firstWindow) {
-                safeTop = firstWindow.safeAreaInsets.top;
-            }
+        if (hideTitleBar) {
+            self.editorView.topRenderMargin = MAX(8.0, safeTop + 4.0);
+        } else if (safeTop >= 44.0) {
+            self.editorView.topRenderMargin = safeTop + 15.0;
+        } else {
+            self.editorView.topRenderMargin = safeTop + 23.0;
         }
-        self.editorView.topRenderMargin = safeTop + 15;
         [self layoutSplitViews];
         if (self.topFillView.bounds.size.height > 0) {
             CGSize curFillSize = self.topFillView.bounds.size;
@@ -3389,12 +4048,13 @@ static NSString *s_iosClipboardSnapshot = nil;
         if (endFrameVal) {
             CGRect endFrame = [endFrameVal CGRectValue];
             CGRect screenIntersection = CGRectIntersection(screenBounds, endFrame);
+            CGFloat minRequiredWidth = MIN(screenBounds.size.width * 0.4, MAX(120.0, self.view.bounds.size.width * 0.5));
             BOOL isDockedAtBottom = !CGRectIsNull(screenIntersection) &&
                                     !CGRectIsEmpty(screenIntersection) &&
                                     screenIntersection.size.height > 1.0 &&
                                     endFrame.origin.y < screenBounds.size.height - 1.0 &&
-                                    CGRectGetMaxY(screenIntersection) >= screenBounds.size.height - 10.0 &&
-                                    screenIntersection.size.width >= screenBounds.size.width * 0.5;
+                                    CGRectGetMaxY(screenIntersection) >= screenBounds.size.height - 16.0 &&
+                                    screenIntersection.size.width >= minRequiredWidth;
             if (isDockedAtBottom) {
                 _isKeyboardVisible = YES;
                 _lastKeyboardScreenFrame = endFrame;
@@ -3480,20 +4140,39 @@ static NSString *s_iosClipboardSnapshot = nil;
 - (void)presentDocumentPickerForSaving {
     if (!_editorEngine) return;
     _isExportingDocument = YES;
-    std::string content = _editorEngine->pt.getRange(0, _editorEngine->pt.length());
-    NSData *data = [NSData dataWithBytes:content.c_str() length:content.length()];
-    std::string utf8Name = WToUTF8(_editorEngine->currentFilePath);
-    NSString *fileName = nil;
-    if (utf8Name.empty()) {
-        fileName = NSLocalizedString(@"Untitled", @"新規ファイル名");
-    } else {
-        fileName = [[[NSString stringWithUTF8String:utf8Name.c_str()] lastPathComponent] stringByDeletingPathExtension];
-        if (fileName.length == 0) {
-            fileName = NSLocalizedString(@"Untitled", @"新規ファイル名");
-        }
+    std::string outBytes = _editorEngine->getEncodedContentForSaving();
+    NSData *data = [NSData dataWithBytes:outBytes.data() length:outBytes.size()];
+    std::string utf8Path = WToUTF8(_editorEngine->currentFilePath);
+    std::string dispUtf8 = (self.currentDocumentDisplayName && self.currentDocumentDisplayName.UTF8String)
+        ? std::string(self.currentDocumentDisplayName.UTF8String)
+        : "";
+    NSString *localizedUntitled = NSLocalizedString(@"Untitled", @"新規ファイル名");
+    std::string untitledUtf8 = (localizedUntitled && localizedUntitled.UTF8String)
+        ? std::string(localizedUntitled.UTF8String)
+        : "Untitled";
+    std::string exportNameUtf8 = MiuBuildExportFileName(utf8Path, dispUtf8, untitledUtf8);
+    NSString *fileName = [NSString stringWithUTF8String:exportNameUtf8.c_str()];
+    if (!fileName || fileName.length == 0) {
+        fileName = localizedUntitled;
     }
-    NSString *tempFilePath = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
+    if (self.currentDocumentDisplayName.length > 0 &&
+        !MiuIsLikelyTemporaryGuidFileName(self.currentDocumentDisplayName.UTF8String)) {
+        self.pendingExportFileName = self.currentDocumentDisplayName;
+    } else if (!utf8Path.empty()) {
+        NSString *lastComp = [[NSString stringWithUTF8String:utf8Path.c_str()] lastPathComponent];
+        self.pendingExportFileName = (lastComp.length > 0 && !MiuIsLikelyTemporaryGuidFileName(lastComp.UTF8String))
+            ? lastComp
+            : nil;
+    } else {
+        self.pendingExportFileName = nil;
+    }
+    NSString *exportDir = [NSTemporaryDirectory() stringByAppendingPathComponent:@"MiuExport"];
+    NSFileManager *fm = [NSFileManager defaultManager];
+    [fm removeItemAtPath:exportDir error:nil];
+    [fm createDirectoryAtPath:exportDir withIntermediateDirectories:YES attributes:nil error:nil];
+    NSString *tempFilePath = [exportDir stringByAppendingPathComponent:fileName];
     [data writeToFile:tempFilePath atomically:YES];
+    self.pendingExportTempFilePath = tempFilePath;
     NSURL *tempURL = [NSURL fileURLWithPath:tempFilePath];
     UIDocumentPickerViewController *picker = [[UIDocumentPickerViewController alloc] initForExportingURLs:@[tempURL] asCopy:YES];
 #pragma clang diagnostic push
@@ -3506,46 +4185,153 @@ static NSString *s_iosClipboardSnapshot = nil;
 - (void)documentPicker:(UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
     NSURL *url = urls.firstObject;
     if (!url || !_editorEngine) return;
-    if (self.currentDocumentURL) {
-        [self.currentDocumentURL stopAccessingSecurityScopedResource];
-        self.currentDocumentURL = nil;
+    NSURL *scopedURL = url;
+    BOOL accessGranted = [scopedURL startAccessingSecurityScopedResource];
+    NSString *fallbackName = _isExportingDocument
+        ? (self.pendingExportFileName ?: self.currentDocumentDisplayName)
+        : ((url.path.length > 0) ? [self savedDisplayNameForPath:url.path] : nil);
+    NSString *resolvedDisplayName = nil;
+    NSURL *resolvedURL = [self resolveDocumentURL:url fallbackName:fallbackName outDisplayName:&resolvedDisplayName];
+    if (resolvedURL && resolvedURL != url) {
+        BOOL resolvedAccess = [resolvedURL startAccessingSecurityScopedResource];
+        if (resolvedAccess) {
+            if (accessGranted && scopedURL != self.currentDocumentURL) {
+                [scopedURL stopAccessingSecurityScopedResource];
+            }
+            scopedURL = resolvedURL;
+            url = resolvedURL;
+            accessGranted = YES;
+        } else if (resolvedURL.path.length > 0 && [[NSFileManager defaultManager] isReadableFileAtPath:resolvedURL.path]) {
+            url = resolvedURL;
+        }
     }
-    BOOL accessGranted = [url startAccessingSecurityScopedResource];
-    [self saveBookmarkForURL:url];
-    self.currentDocumentURL = accessGranted ? url : nil;
     if (!_isExportingDocument) {
-        std::string path = url.path.UTF8String;
+        std::string path = url.path ? std::string(url.path.UTF8String) : "";
         [self.editorView unmarkText];
         [self.editorView.inputDelegate selectionWillChange:self.editorView];
         [self.editorView.inputDelegate textWillChange:self.editorView];
         bool success = _editorEngine->openFileFromPath(path);
+        if (!success && url) {
+            __block bool coordSuccess = false;
+            __block std::string coordOpenedPath;
+            NSFileCoordinator *coordinator = [[NSFileCoordinator alloc] initWithFilePresenter:nil];
+            [coordinator coordinateReadingItemAtURL:url options:NSFileCoordinatorReadingWithoutChanges error:nil byAccessor:^(NSURL * _Nonnull newURL) {
+                if (newURL && newURL.path.length > 0) {
+                    coordOpenedPath = std::string(newURL.path.UTF8String);
+                    coordSuccess = _editorEngine->openFileFromPath(coordOpenedPath);
+                }
+            }];
+            if (coordSuccess) {
+                success = true;
+                if (coordOpenedPath != path && !path.empty()) {
+                    _editorEngine->currentFilePath = UTF8ToW(path);
+                    _editorEngine->addToRecentFiles(path);
+                }
+            }
+        }
         if (success) {
+            if (self.currentDocumentURL && self.currentDocumentURL != scopedURL) {
+                [self.currentDocumentURL stopAccessingSecurityScopedResource];
+            }
+            self.currentDocumentURL = accessGranted ? scopedURL : nil;
+            self.currentDocumentDisplayName = resolvedDisplayName;
+            [self saveBookmarkForURL:scopedURL ?: url];
+            if (url.path.length > 0 && resolvedDisplayName.length > 0) {
+                [self saveDisplayName:resolvedDisplayName forPath:url.path];
+            }
+            if (resolvedDisplayName.length > 0) {
+                _editorEngine->loadSyntaxForExtension(resolvedDisplayName.UTF8String);
+            }
             if (self.searchField.text.length > 0) {
                 _editorEngine->searchQuery = self.searchField.text.UTF8String;
+            }
+            _editorEngine->updateTitleBar();
+        } else {
+            if (accessGranted && scopedURL && scopedURL != self.currentDocumentURL) {
+                [scopedURL stopAccessingSecurityScopedResource];
             }
         }
         [self.editorView.inputDelegate textDidChange:self.editorView];
         [self.editorView.inputDelegate selectionDidChange:self.editorView];
         [self.editorView setNeedsDisplay];
     } else {
-        std::string path = url.path.UTF8String;
-        std::wstring wpath = UTF8ToW(path);
-        if (!_editorEngine->saveFile(wpath)) {
-            _editorEngine->currentFilePath = wpath;
-            _editorEngine->loadSyntaxForExtension(path);
-            _editorEngine->recordFileMtime(path);
-            _editorEngine->addToRecentFiles(path);
-            _editorEngine->saveCurrentViewState();
-            _editorEngine->undo.markSaved();
-            _editorEngine->isDirty = false;
-            _editorEngine->updateTitleBar();
+        if (self.currentDocumentURL && self.currentDocumentURL != scopedURL) {
+            [self.currentDocumentURL stopAccessingSecurityScopedResource];
         }
+        self.currentDocumentURL = accessGranted ? scopedURL : nil;
+        self.currentDocumentDisplayName = resolvedDisplayName;
+        [self saveBookmarkForURL:scopedURL ?: url];
+        if (url.path.length > 0 && resolvedDisplayName.length > 0) {
+            [self saveDisplayName:resolvedDisplayName forPath:url.path];
+        }
+        if (self.pendingExportTempFilePath) {
+            [[NSFileManager defaultManager] removeItemAtPath:self.pendingExportTempFilePath error:nil];
+            self.pendingExportTempFilePath = nil;
+        }
+        std::string path = url.path ? std::string(url.path.UTF8String) : "";
+        std::wstring wpath = UTF8ToW(path);
+        _editorEngine->currentFilePath = wpath;
+        std::string syntaxTarget = (resolvedDisplayName.length > 0 && resolvedDisplayName.UTF8String)
+            ? std::string(resolvedDisplayName.UTF8String)
+            : path;
+        _editorEngine->loadSyntaxForExtension(syntaxTarget);
+        _editorEngine->recordFileMtime(path);
+        _editorEngine->addToRecentFiles(path);
+        _editorEngine->saveCurrentViewState();
+        _editorEngine->undo.markSaved();
+        _editorEngine->isDirty = false;
+        _editorEngine->updateTitleBar();
+        [self.editorView setNeedsDisplay];
+
+        NSURL *pickedURL = url;
+        NSString *initialFallback = fallbackName;
+        __weak typeof(self) weakSelf = self;
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.35 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            if (!strongSelf || !strongSelf->_editorEngine || !pickedURL) return;
+            NSString *refreshedName = nil;
+            NSURL *refreshedURL = [strongSelf resolveDocumentURL:pickedURL fallbackName:initialFallback outDisplayName:&refreshedName];
+            if (refreshedName.length > 0 &&
+                !MiuIsLikelyTemporaryGuidFileName(refreshedName.UTF8String)) {
+                if (pickedURL.path.length > 0) {
+                    [strongSelf saveDisplayName:refreshedName forPath:pickedURL.path];
+                }
+                if (refreshedURL && refreshedURL.path.length > 0) {
+                    [strongSelf saveDisplayName:refreshedName forPath:refreshedURL.path];
+                }
+                if (![refreshedName isEqualToString:strongSelf.currentDocumentDisplayName]) {
+                    strongSelf.currentDocumentDisplayName = refreshedName;
+                    strongSelf->_editorEngine->loadSyntaxForExtension(refreshedName.UTF8String);
+                    strongSelf->_editorEngine->updateTitleBar();
+                    [strongSelf.editorView setNeedsDisplay];
+                }
+            }
+            if (refreshedURL && refreshedURL.path.length > 0 && pickedURL.path.length > 0 &&
+                ![refreshedURL.path isEqualToString:pickedURL.path]) {
+                NSFileManager *fm = [NSFileManager defaultManager];
+                if (![fm fileExistsAtPath:pickedURL.path] && [fm fileExistsAtPath:refreshedURL.path]) {
+                    std::string oldPath = std::string(pickedURL.path.UTF8String);
+                    std::string newPath = std::string(refreshedURL.path.UTF8String);
+                    auto &rf = strongSelf->_editorEngine->recentFiles;
+                    rf.erase(std::remove(rf.begin(), rf.end(), oldPath), rf.end());
+                    strongSelf->_editorEngine->currentFilePath = UTF8ToW(newPath);
+                    strongSelf->_editorEngine->recordFileMtime(newPath);
+                    strongSelf->_editorEngine->addToRecentFiles(newPath);
+                    [strongSelf saveBookmarkForURL:refreshedURL];
+                    strongSelf->_editorEngine->updateTitleBar();
+                }
+            }
+        });
     }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.editorView becomeFirstResponder];
     });
 }
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
+    if (self.pendingExportTempFilePath) {
+        [[NSFileManager defaultManager] removeItemAtPath:self.pendingExportTempFilePath error:nil];
+        self.pendingExportTempFilePath = nil;
+    }
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         [self.editorView becomeFirstResponder];
     });

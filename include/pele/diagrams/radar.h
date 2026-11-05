@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../foundation.h"
 
 namespace Pele {
@@ -41,14 +41,14 @@ enum Kind {
 };
 } // namespace T
 
-inline int matchDigits(const std::string& src, int at) noexcept {
+inline int matchDigits(const std::string& src, int at) {
     int end = at;
     int n = static_cast<int>(src.size());
     while (end < n && src[end] >= '0' && src[end] <= '9') end++;
     return end;
 }
 
-inline int matchRadarNumber(const std::string& src, int at, int) noexcept {
+inline int matchRadarNumber(const std::string& src, int at, int) {
     int whole = matchDigits(src, at);
     if (whole == at) return -1;
     bool dot = (charCodeAt(src, whole) == 46);
@@ -63,7 +63,7 @@ inline int matchRadarNumber(const std::string& src, int at, int) noexcept {
     return whole - 1 > at ? whole - 1 : -1;
 }
 
-inline bool hasNameRest(const std::string& src, int at) noexcept {
+inline bool hasNameRest(const std::string& src, int at) {
     int n = static_cast<int>(src.size());
     int p = at;
     while (p < n) {
@@ -75,7 +75,7 @@ inline bool hasNameRest(const std::string& src, int at) noexcept {
     return false;
 }
 
-inline int matchRadarId(const std::string& src, int at, int) noexcept {
+inline int matchRadarId(const std::string& src, int at, int) {
     int n = static_cast<int>(src.size());
     if (at >= n || !isWord(charCodeAt(src, at))) return -1;
     int p = at + 1;
@@ -94,7 +94,7 @@ inline int matchRadarId(const std::string& src, int at, int) noexcept {
     return lastWord;
 }
 
-inline TokenScanner makeOptionValueScanner(const std::vector<std::string>& words, int optionKind) noexcept {
+inline TokenScanner makeOptionValueScanner(const std::vector<std::string>& words, int optionKind) {
     return [words, optionKind](const std::string& src, int at, int previous) -> int {
         int end = -1;
         for (const auto& w : words) {
@@ -109,7 +109,7 @@ inline TokenScanner makeOptionValueScanner(const std::vector<std::string>& words
     };
 }
 
-inline TokenType makeRadarTitle() noexcept {
+inline TokenType makeRadarTitle() {
     TokenType t = common_tokens::makeTitle();
     t.match = [](const std::string& src, int at, int) -> int {
         int p = common_tokens::matchTabsSpaces(src, at);
@@ -124,7 +124,7 @@ inline TokenType makeRadarTitle() noexcept {
     return t;
 }
 
-inline const std::vector<TokenType>& radarTokens() noexcept {
+inline const std::vector<TokenType>& radarTokens() {
     static const std::vector<TokenType> types = []() {
         auto mark = [](const std::string& text) {
             TokenType t;
@@ -234,52 +234,6 @@ struct RadarAst {
     std::vector<OptionAst> options;
 };
 
-inline std::string fixSingle(const std::string& text) noexcept {
-    std::string s = trimStr(text);
-    std::string out;
-    int spaces = 0;
-    char firstSpace = ' ';
-    for (size_t i = 0; i < s.size(); ++i) {
-        char c = s[i];
-        if (c == '\t' || c == ' ') {
-            if (spaces == 0) firstSpace = c;
-            spaces++;
-        } else {
-            if (spaces == 1) out.push_back(firstSpace);
-            else if (spaces >= 2) out.push_back(' ');
-            spaces = 0;
-            out.push_back(c);
-        }
-    }
-    return out;
-}
-
-inline std::string fixTitleValue(const std::string& text) noexcept {
-    size_t pos = text.find("title");
-    if (pos == std::string::npos) return "";
-    return fixSingle(text.substr(pos + 5));
-}
-
-inline std::string fixAccTitleValue(const std::string& text) noexcept {
-    size_t pos = text.find(':');
-    if (pos == std::string::npos) return "";
-    return fixSingle(text.substr(pos + 1));
-}
-
-inline std::string fixAccDescrValue(const std::string& text) noexcept {
-    size_t brace = text.find('{');
-    size_t colon = text.find(':');
-    if (colon != std::string::npos && (brace == std::string::npos || colon < brace)) {
-        return fixSingle(text.substr(colon + 1));
-    }
-    if (brace != std::string::npos) {
-        size_t close = text.find('}', brace + 1);
-        std::string body = text.substr(brace + 1, close == std::string::npos ? std::string::npos : close - brace - 1);
-        return cleanAccDescr(body);
-    }
-    return "";
-}
-
 inline RadarAst parseRadar(const std::string& src) {
     const auto& types = radarTokens();
     Tokens toks = tokenize(src, types, "radar");
@@ -364,15 +318,15 @@ inline RadarAst parseRadar(const std::string& src) {
                 r.i++;
                 break;
             case T::accDescr:
-                ast.accDescr = fixAccDescrValue(r.take());
+                ast.accDescr = common_tokens::accDescrValue(r.take());
                 endOfLine();
                 break;
             case T::accTitle:
-                ast.accTitle = fixAccTitleValue(r.take());
+                ast.accTitle = common_tokens::accTitleValue(r.take());
                 endOfLine();
                 break;
             case T::title:
-                ast.title = fixTitleValue(r.take());
+                ast.title = common_tokens::titleValue(r.take());
                 endOfLine();
                 break;
             case T::axis:
@@ -428,7 +382,7 @@ struct RadarModel : public DiagramMeta {
 
 constexpr int MAX_TICKS = 32;
 
-inline PeleError invalidRadar(const std::string& message) noexcept {
+inline PeleError invalidRadar(const std::string& message) {
     return PeleError(message, "semantic", "radar");
 }
 
@@ -491,7 +445,7 @@ struct Point {
     double y = 0.0;
 };
 
-inline double radarOption(const Config& config, const std::string& key, double fallback, double minVal, double maxVal) noexcept {
+inline double radarOption(const Config& config, const std::string& key, double fallback, double minVal, double maxVal) {
     const auto* r = config.get("radar");
     if (!r || !r->isMap()) return fallback;
     const auto* v = r->get(key);
@@ -499,13 +453,13 @@ inline double radarOption(const Config& config, const std::string& key, double f
     return v->nVal >= minVal ? std::min(v->nVal, maxVal) : fallback;
 }
 
-inline double relativeRadius(double value, double minVal, double maxVal, double radius) noexcept {
+inline double relativeRadius(double value, double minVal, double maxVal, double radius) {
     double clipped = std::min(std::max(value, minVal), maxVal);
     double scaled = radius * (clipped - minVal);
     return std::isfinite(scaled) ? scaled / (maxVal - minVal) : radius * ((clipped - minVal) / (maxVal - minVal));
 }
 
-inline std::string closedRoundCurve(const std::vector<Point>& points, double tension) noexcept {
+inline std::string closedRoundCurve(const std::vector<Point>& points, double tension) {
     size_t n = points.size();
     std::string d = Pele::cat({"M", num(points[0].x), ",", num(points[0].y)});
     for (size_t i = 0; i < n; i++) {
@@ -518,7 +472,7 @@ inline std::string closedRoundCurve(const std::vector<Point>& points, double ten
     return Pele::cat({d, " Z"});
 }
 
-inline std::string polygonPoints(const std::vector<Point>& points) noexcept {
+inline std::string polygonPoints(const std::vector<Point>& points) {
     std::string out;
     for (const auto& p : points) {
         if (!out.empty()) out.push_back(' ');
@@ -527,14 +481,14 @@ inline std::string polygonPoints(const std::vector<Point>& points) noexcept {
     return out;
 }
 
-inline double radarTitleRoom(const RenderOptions& options) noexcept {
+inline double radarTitleRoom(const RenderOptions& options) {
     double available = options.maxWidth;
     double pad = options.hasPadding ? options.padding : 8.0;
     return available > 0 ? std::max(80.0, available - 2.0 * pad) : 4000.0;
 }
 
 template <typename DrawFn>
-inline Rendered fitWidth(const RenderOptions& options, double natural, double least, DrawFn&& draw) noexcept {
+inline Rendered fitWidth(const RenderOptions& options, double natural, double least, DrawFn&& draw) {
     Rendered result = draw(natural, false);
     double available = options.maxWidth;
     if (!(available > 0) || result.width <= available) return result;
@@ -548,7 +502,7 @@ inline Rendered fitWidth(const RenderOptions& options, double natural, double le
     return result;
 }
 
-inline Rendered drawRadar(const RadarModel& model, const Config& config, const RenderOptions& options, double width, double height, bool tight) noexcept {
+inline Rendered drawRadar(const RadarModel& model, const Config& config, const RenderOptions& options, double width, double height, bool tight) {
     double size = options.hasFontSize ? options.fontSize : 16.0;
     double small = std::round(size * 0.875);
     const TextMeasurer& measurer = getMeasurer(options);
@@ -681,7 +635,7 @@ inline Rendered drawRadar(const RadarModel& model, const Config& config, const R
     };
 }
 
-inline Rendered renderRadarModel(const RadarModel& model, const Config& config, const RenderOptions& options) noexcept {
+inline Rendered renderRadarModel(const RadarModel& model, const Config& config, const RenderOptions& options) {
     double natural = radarOption(config, "width", 320.0, 1.0, 4000.0);
     return fitWidth(options, natural, 160.0, [&](double width, bool tight) {
         return drawRadar(model, config, options, width, (radarOption(config, "height", 320.0, 1.0, 4000.0) * width) / natural, tight);

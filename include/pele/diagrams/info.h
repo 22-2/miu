@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "../foundation.h"
 
 namespace Pele {
@@ -30,7 +30,7 @@ namespace T {
     };
 }
 
-inline const std::vector<TokenType>& infoTokens() noexcept {
+inline const std::vector<TokenType>& infoTokens() {
     static const std::vector<TokenType> tokens = {
         common_tokens::keyword("showInfo"),
         common_tokens::keyword("info"),
@@ -78,28 +78,7 @@ inline InfoAst parseInfo(const std::string& src) {
     return ast;
 }
 
-inline std::string stripNewlineIndent(const std::string& s) noexcept {
-    std::string out;
-    out.reserve(s.size());
-    size_t i = 0;
-    while (i < s.size()) {
-        if (s[i] == '\n') {
-            out.push_back('\n');
-            i++;
-            while (i < s.size()) {
-                size_t next = i;
-                int cp = charCodeAtUtf8(s, i, &next);
-                if (!isSpace(cp)) break;
-                i = next;
-            }
-        } else {
-            out.push_back(s[i++]);
-        }
-    }
-    return out;
-}
-
-inline InfoModel buildInfo(const InfoAst& ast, const std::string& title) noexcept {
+inline InfoModel buildInfo(const InfoAst& ast, const std::string& title) {
     InfoModel model;
     model.title = !ast.title.empty() ? ast.title : title;
     model.accTitle = !ast.accTitle.empty() ? trimStartStr(ast.accTitle) : "";
@@ -107,7 +86,7 @@ inline InfoModel buildInfo(const InfoAst& ast, const std::string& title) noexcep
     return model;
 }
 
-inline Rendered renderInfoModel(const InfoModel& model, const Config& /*config*/, const RenderOptions& options) noexcept {
+inline Rendered renderInfoModel(const InfoModel& model, const Config& /*config*/, const RenderOptions& options) {
     double size = options.fontSize;
     const auto& measurer = getMeasurer(options);
     double pad = options.padding;

@@ -13,14 +13,14 @@ import jwt
 import requests
 
 BUNDLE_ID = "jp.hack.miu"
-TARGET_VERSION = "1.0.44"
+TARGET_VERSION = "1.0.48"
 BASE_URL = "https://api.appstoreconnect.apple.com/v1"
 
 # ============================================================================
 # Localized App Store Metadata (Simple, polite, and likable tone)
 # ============================================================================
 
-JA_DESC = """miu（ミュウ）は、毎日のちょっとしたメモから、Markdownでの文章作成、プログラミングまで、心地よく使えるシンプルなテキストエディタです。
+JA_DESC = """miuは、毎日のちょっとしたメモから、Markdownでの文章作成、プログラミングまで、心地よく使えるシンプルなテキストエディタです。
 
 アプリを開いた瞬間にすぐ書き始められる軽快さと、長時間の作業でも目が疲れにくい、すっきりとしたデザインを大切にして作られました。iPhone、iPad、Macのどの端末でも、自然でなめらかな書き心地をお届けします。
 
@@ -48,13 +48,11 @@ UTF-8やShift_JIS、EUC-JPなど、さまざまな文字コードを自動で判
 miuが、あなたの「書く時間」を少しでも快適にするお手伝いができれば幸いです。"""
 
 JA_WHATS_NEW = """いつも miu をご利用いただきありがとうございます。
-今回のアップデートでは、より快適にお使いいただけるよう、以下の機能追加と改善を行いました。
+v1.0.48 では、全角文字・多言語文字に対する正規表現検索・置換の改善とスクロール表示の修正を行いました。
 
-・対応言語の拡充：シンタックスハイライトに新しく25種類の言語・設定ファイルを追加し、合計49カテゴリ（120種類以上の拡張子）に対応しました。
-・日本語入力の改善：変換確定前の文字が見やすく表示されるようになり、全角文字を含む行でも行番号がきれいに揃うよう調整しました。
-・入力操作とプレビューの改善：iOSでのEmmet展開（Tabキー入力）や、ソフトウェアキーボード使用時の自動スクロール、プレビュー切り替え時の描画を改善しました。
-・画面レイアウトの最適化：iPadで画面を縦横に回転させた際や、さまざまな画面サイズでも、エディタが画面の端までぴったり収まるよう修正しました。
-・保存機能の改善：「別名で保存」の際に、指定した拡張子のまま正しく保存できるよう改善しました。"""
+・全角文字・多言語文字の正規表現検索・置換を改善：日本語（ひらがな・カタカナ・漢字・全角記号）、韓国語（ハングル）、中国語、絵文字などを正規表現「.」や文字範囲（[あ-ん] など）で検索・置換した際、1文字が複数文字分に変換されてしまう問題を修正し、正確に1文字単位で置換できるようになりました。
+・スクロール時のカーソル表示を改善：スクロールしてカーソル位置が画面外に見切れた際、表示されている一番上の行先頭にカーソルが表示される問題を修正しました。
+・高速な編集・一括置換・ライブプレビュー：大容量ファイルの編集や一括置換、Markdown / LaTeX数式 / Mermaid図表のリアルタイムプレビューが軽快に動作します。"""
 
 EN_DESC = """miu is a simple, lightweight text and code editor designed to make everything from quick daily notes to Markdown writing and programming feel effortless.
 
@@ -83,13 +81,11 @@ No ads, no tracking, and no data collection. Everything works 100% offline on yo
 Whether you use it as an everyday notepad or a reliable code editor, we hope miu makes your writing time a little more enjoyable."""
 
 EN_WHATS_NEW = """Thank you for using miu.
-This update brings new features and refinements to make your editing experience even smoother:
+Version 1.0.48 improves multi-language regular expression search & replace and refines cursor display while scrolling:
 
-• Expanded Language Support: Added 25 new syntax highlighting languages and configuration formats, now supporting 49 categories (120+ file extensions).
-• Improved Text Input & Alignment: Improved live display for uncommitted IME text (such as Japanese input) and refined line number alignment for lines containing full-width characters.
-• Better Typing & Preview Experience: Improved Emmet abbreviation expansion on iOS, smoother auto-scrolling with the on-screen keyboard, and cleaner rendering when toggling Live Preview.
-• Refined Screen Layout: Fixed layout adjustments when rotating iPad between portrait and landscape so the editor always fits cleanly to the edges of the screen.
-• Improved File Saving: "Save As" now preserves your custom file extension without automatically appending .txt."""
+• Accurate Multi-Language Regex Search & Replace: Fixed an issue where "." or character ranges in regular expressions matched individual UTF-8 bytes instead of complete characters—Japanese, Korean, Chinese, accented characters, and emoji are now matched and replaced accurately one character at a time.
+• Improved Cursor Display When Scrolling: Fixed an issue where scrolling the active cursor line off-screen could display a cursor at the start of the top visible line.
+• Fast Editing, Instant "Replace All" & Smooth Markdown / LaTeX / Mermaid Live Preview."""
 
 ZH_HANS_DESC = """miu 是一款简洁、轻快的文本与代码编辑器。无论是记录日常随笔、撰写 Markdown 文档，还是编写程序代码，都能为您提供舒适顺畅的书写体验。
 
@@ -118,13 +114,11 @@ ZH_HANS_DESC = """miu 是一款简洁、轻快的文本与代码编辑器。无�
 无论是作为日常便签，还是得力的代码编辑器，希望 miu 能陪伴您度过每一段愉快的书写时光。"""
 
 ZH_HANS_WHATS_NEW = """感谢您使用 miu。
-本次更新带来了以下功能扩充与体验优化，为您提供更加顺畅的编辑环境：
+v1.0.48 优化了全角与多语言字符的正则表达式查找替换，并修复了滚动时的光标显示：
 
-・新增语法高亮语言：新增 25 种编程语言与配置文件格式，目前共支持 49 个类别（120 多种文件扩展名）。
-・输入体验优化：改进了中日韩输入法候选词确认前的实时显示效果，并优化了包含全角字符时的行号对齐精度。
-・键盘与预览改进：修复了 iOS 上的 Emmet 缩写展开（Tab 键），优化了使用软键盘换行时的自动滚动，以及切换实时预览时的画面渲染。
-・屏幕布局优化：修复了 iPad 横竖屏旋转时的界面自适应问题，使编辑区域始终完美贴合屏幕边缘。
-・保存功能改进：使用“另存为”时，可完整保留您输入的自定义扩展名，不再强制附加 .txt。"""
+・完善中文、日文、韩文及全角字符的正则表达式查找与替换：修复了使用正则表达式“.”、字符范围（如 [一-龥]）或量词替换全角字符时，1 个字符被重复替换多次的问题，现在所有多语言字符与表情符号均按单个字符精准匹配和替换。
+・优化滚动时的光标显示：修复了当光标所在行滚出屏幕可视区域时，可视区域第一行行首仍会显示光标的问题。
+・高速编辑、“全部替换”与 Markdown / LaTeX 公式 / Mermaid 图表实时预览。"""
 
 ZH_HANT_DESC = """miu 是一款簡潔、輕快的純文字與程式碼編輯器。無論是記錄日常隨手筆記、撰寫 Markdown 文章，還是編寫程式碼，都能為您帶來舒適順暢的書寫體驗。
 
@@ -153,13 +147,11 @@ ZH_HANT_DESC = """miu 是一款簡潔、輕快的純文字與程式碼編輯器�
 無論是作為日常記事本，還是可靠的程式碼編輯器，希望 miu 能讓您的書寫時光更加愉快。"""
 
 ZH_HANT_WHATS_NEW = """感謝您使用 miu。
-本次更新帶來了以下功能擴充與細節改善，讓操作更加順暢舒適：
+v1.0.48 最佳化了全形與多語言字元的正規表示式尋找取代，並修復了捲動時的游標顯示：
 
-・擴充支援語言：新增 25 種語法突顯語言與設定檔格式，總計支援 49 個類別（超過 120 種副檔名）。
-・輸入體驗改善：修正了輸入法組字（未確定文字）在編輯器上的即時顯示，並微調了全形字元與行號的對齊位置。
-・操作與預覽最佳化：改善了 iOS 上的 Emmet 縮寫展開（Tab 鍵）、虛擬鍵盤換行時的自動捲動，以及切換預覽畫面時的繪製表現。
-・畫面佈局最佳化：修正了 iPad 直向與橫向旋轉時的版面配置，讓編輯區域始終完美貼合螢幕邊緣。
-・儲存功能改善：使用「另存新檔」時，能正確保留您指定的自訂副檔名，不再自動加上 .txt。"""
+・完善中文、日文、韓文及全形字元的正規表示式尋找與取代：修復了使用正規表示式「.」、字元範圍（如 [一-龥]）或量詞取代全形字元時，1 個字元被重複取代多次的問題，現在所有多語言字元與表情符號均按單一字元精準比對與取代。
+・最佳化捲動時的游標顯示：修復了當游標所在行捲出畫面可視區域時，可視區域第一行行首仍會顯示游標的問題。
+・高速編輯、「全部取代」與 Markdown / LaTeX 數學公式 / Mermaid 圖表即時預覽。"""
 
 KO_DESC = """miu는 일상의 가벼운 메모부터 Markdown 글쓰기, 프로그래밍까지 편안하게 사용할 수 있는 심플한 텍스트 및 코드 에디터입니다.
 
@@ -189,13 +181,11 @@ UTF-8, Shift_JIS, EUC-JP, UTF-16 등 다양한 문자 인코딩을 자동으로 
 miu가 당신의 글쓰기 시간을 조금 더 기분 좋게 만들어 드릴 수 있기를 바랍니다."""
 
 KO_WHATS_NEW = """언제나 miu를 이용해 주셔서 감사합니다.
-이번 업데이트에서는 더욱 쾌적한 사용을 위해 다음과 같은 기능 추가와 개선을 진행했습니다.
+v1.0.48에서는 한글·전각 문자에 대한 정규식 찾기/바꾸기 정확도를 개선하고 스크롤 시 커서 표시를 수정했습니다.
 
-・지원 언어 확대: 구문 강조에 25종의 언어 및 설정 파일 형식을 새롭게 추가하여 총 49개 카테고리(120종 이상의 확장자)를 지원합니다.
-・입력 및 줄 번호 정렬 개선: 조합 중인 글자(IME 미확정 문자)가 에디터에 자연스럽게 표시되도록 수정하고, 전각 문자가 포함된 줄에서도 줄 번호가 깔끔하게 정렬되도록 개선했습니다.
-・입력 조작 및 미리보기 개선: iOS에서의 Emmet 약어 전개(Tab 키), 화면 키보드 사용 시의 자동 스크롤, 미리보기 전환 시의 화면 표시를 개선했습니다.
-・화면 레이아웃 최적화: iPad를 세로와 가로로 회전할 때나 다양한 화면 크기에서도 에디터 영역이 화면 가장자리에 꼭 맞게 표시되도록 수정했습니다.
-・저장 기능 개선: '다른 이름으로 저장' 시 지정한 확장자 그대로 저장되도록 개선했습니다."""
+・한글·전각 문자 및 다국어 정규식 찾기/바꾸기 개선: 정규식 '.' 또는 문자 범위([가-힣] 등)로 전각 문자를 변환할 때 1글자가 여러 번 중복 변환되던 문제를 수정하여, 한글·일본어·중국어·이모지 등이 정확히 1글자 단위로 매칭 및 치환됩니다.
+・스크롤 시 화면 밖 커서 표시 수정: 스크롤하여 실제 커서 위치가 화면 밖으로 벗어났을 때 화면 맨 위 줄의 맨 앞에 커서가 표시되던 현상을 수정했습니다.
+・빠른 편집, 초고속 '모두 바꾸기' 및 Markdown / LaTeX 수식 / Mermaid 다이어그램 실시간 미리보기."""
 
 DE_DESC = """miu ist ein schlichter, leichtgewichtiger Text- und Code-Editor, mit dem alltägliche Notizen, Markdown-Texte und Programmierarbeiten gleichermaßen angenehm von der Hand gehen.
 
@@ -224,13 +214,11 @@ Keine Werbung, kein Tracking und keine Datenübertragung. Alle Funktionen arbeit
 Ob als täglicher Notizblock oder als verlässlicher Code-Editor – wir hoffen, dass miu Ihnen das Schreiben jeden Tag ein Stück angenehmer macht."""
 
 DE_WHATS_NEW = """Vielen Dank, dass Sie miu nutzen.
-Dieses Update bringt neue Funktionen und Verbesserungen für ein noch angenehmeres Arbeiten:
+Version 1.0.48 verbessert die reguläre Ausdruckssuche für mehrsprachige Zeichen und die Cursoranzeige beim Scrollen:
 
-• Mehr unterstützte Sprachen: 25 neue Sprachen und Konfigurationsformate für die Syntaxhervorhebung hinzugefügt – insgesamt werden nun 49 Kategorien (über 120 Dateiendungen) unterstützt.
-• Verbesserte Texteingabe & Ausrichtung: Optimierte Darstellung während der IME-Zeicheneingabe sowie präzise Ausrichtung der Zeilennummern bei Zeichen mit voller Breite.
-• Optimierte Bedienung & Vorschau: Verbesserte Emmet-Erweiterung unter iOS, sanfteres automatisches Scrollen mit der Bildschirmtastatur und saubere Darstellung beim Umschalten der Live-Vorschau.
-• Angepasstes Bildschirmlayout: Korrigierte Anpassung beim Drehen des iPads zwischen Hoch- und Querformat, sodass der Editor stets bündig mit dem Bildschirmrand abschließt.
-• Verbessertes Speichern: „Speichern unter“ behält nun Ihre gewählte Dateiendung bei, ohne automatisch .txt anzuhängen."""
+• Präzise Regex-Suche & -Ersetzung für Vollbreiten- und Unicode-Zeichen: Ein Problem wurde behoben, bei dem „.“ oder Zeichenbereiche mehrbytige UTF-8-Zeichen mehrfach ersetzten. Japanische, koreanische, chinesische Zeichen, Umlaute und Emojis werden nun exakt zeichenweise verarbeitet.
+• Verbesserte Cursoranzeige beim Scrollen: Wenn sich der Cursor außerhalb des sichtbaren Bereichs befindet, wird er nicht mehr am Anfang der obersten sichtbaren Zeile angezeigt.
+• Schnelles Bearbeiten, sofortiges „Alle ersetzen“ und flüssige Live-Vorschau für Markdown, LaTeX & Mermaid."""
 
 FR_DESC = """miu est un éditeur de texte et de code simple et léger, conçu pour rendre aussi agréables la prise de notes quotidienne, la rédaction en Markdown et la programmation.
 
@@ -259,13 +247,11 @@ Aucune publicité, aucun suivi et aucune collecte de données. Tout fonctionne �
 Comme bloc-notes de tous les jours ou comme éditeur de code fiable, nous espérons que miu rendra vos moments d’écriture plus agréables."""
 
 FR_WHATS_NEW = """Merci d’utiliser miu.
-Cette mise à jour apporte de nouvelles fonctionnalités et des améliorations pour rendre votre expérience encore plus confortable :
+La version 1.0.48 améliore la recherche/remplacement par expression régulière multilingue et l’affichage du curseur :
 
-• Prise en charge de nouveaux langages : ajout de 25 nouveaux langages et formats de configuration pour la coloration syntaxique, portant le total à 49 catégories (plus de 120 extensions).
-• Saisie et alignement améliorés : meilleur affichage en direct lors de la saisie IME et alignement précis des numéros de ligne avec les caractères pleine chasse.
-• Saisie au clavier et aperçu optimisés : amélioration du développement des abréviations Emmet sur iOS, du défilement automatique avec le clavier virtuel et de l’affichage lors du basculement de l’aperçu en direct.
-• Mise en page ajustée : correction de l’adaptation de l’écran lors de la rotation entre les modes portrait et paysage sur iPad.
-• Enregistrement amélioré : « Enregistrer sous » conserve désormais l’extension personnalisée que vous avez choisie sans ajouter .txt automatiquement."""
+• Expressions régulières précises pour les caractères pleine chasse et Unicode : correction d’un problème où « . » ou les plages de caractères remplaçaient plusieurs fois un même caractère UTF-8 multi-octets (japonais, coréen, chinois, caractères accentués et émojis).
+• Affichage du curseur lors du défilement : le curseur ne s’affiche plus au début de la première ligne visible lorsqu’il est hors de l’écran.
+• Édition rapide, « Tout remplacer » instantané et aperçu en direct Markdown, LaTeX et Mermaid."""
 
 ES_DESC = """miu es un editor de texto y código sencillo y ligero, pensado para que desde tus notas rápidas del día a día hasta la escritura en Markdown y la programación resulten cómodas y agradables.
 
@@ -294,13 +280,11 @@ Sin anuncios, sin rastreo y sin envío de datos. Todo funciona 100 % sin conexi�
 Ya sea como tu bloc de notas diario o como un editor de código de confianza, esperamos que miu haga más agradable tu tiempo de escritura."""
 
 ES_WHATS_NEW = """Gracias por usar miu.
-En esta actualización hemos añadido nuevas funciones y mejoras para ofrecerte una experiencia aún más cómoda:
+La versión 1.0.48 mejora la búsqueda y reemplazo con expresiones regulares en varios idiomas y la visualización del cursor:
 
-• Más lenguajes compatibles: se añadieron 25 nuevos lenguajes y formatos de configuración al resaltado de sintaxis, alcanzando un total de 49 categorías (más de 120 extensiones).
-• Mejoras en la entrada de texto y alineación: mejor visualización del texto en composición (IME) y alineación precisa de los números de línea al usar caracteres de ancho completo.
-• Mejor experiencia de teclado y vista previa: se mejoró la expansión de Emmet en iOS, el desplazamiento automático con el teclado en pantalla y el dibujado al alternar la vista previa.
-• Diseño de pantalla optimizado: se corrigió el ajuste del área de edición al girar el iPad entre vertical y horizontal para que siempre ocupe toda la pantalla de forma limpia.
-• Mejora al guardar archivos: ahora «Guardar como» conserva la extensión personalizada que indiques sin añadir .txt automáticamente."""
+• Expresiones regulares precisas para caracteres de ancho completo y Unicode: se corrigió un problema por el cual «.» o los rangos de caracteres reemplazaban varias veces un mismo carácter multibyte (japonés, coreano, chino, acentos y emojis).
+• Visualización mejorada del cursor al desplazar: el cursor ya no aparece al inicio de la primera línea visible cuando la línea real del cursor está fuera de la pantalla.
+• Edición rápida, «Reemplazar todo» instantáneo y vista previa en vivo para Markdown, LaTeX y Mermaid."""
 
 IT_DESC = """miu è un editor di testo e codice semplice e leggero, pensato per rendere piacevole ogni attività: dagli appunti quotidiani alla scrittura in Markdown, fino alla programmazione.
 
@@ -329,13 +313,11 @@ Nessuna pubblicità, nessun tracciamento e nessuna raccolta dati. Tutto funziona
 Come blocco note quotidiano o come affidabile editor di codice, speriamo che miu renda più piacevole il tuo tempo dedicato alla scrittura."""
 
 IT_WHATS_NEW = """Grazie per aver scelto miu.
-Questo aggiornamento introduce nuove funzionalità e miglioramenti per rendere l’utilizzo ancora più confortevole:
+La versione 1.0.48 migliora la ricerca e sostituzione Regex multilingua e la visualizzazione del cursore durante lo scorrimento:
 
-• Nuovi linguaggi supportati: aggiunti 25 nuovi linguaggi e formati di configurazione per l’evidenziazione della sintassi, per un totale di 49 categorie (oltre 120 estensioni).
-• Miglioramenti all’inserimento del testo: perfezionata la visualizzazione del testo durante la composizione IME e l’allineamento dei numeri di riga con i caratteri a larghezza intera.
-• Tastiera e anteprima migliorate: ottimizzata l’espansione Emmet su iOS, lo scorrimento automatico con la tastiera su schermo e la resa grafica durante l’attivazione dell’anteprima.
-• Layout dello schermo ottimizzato: risolto il ridimensionamento dell’editor durante la rotazione dell’iPad tra verticale e orizzontale.
-• Salvataggio migliorato: "Salva con nome" ora mantiene correttamente l’estensione personalizzata senza aggiungere automaticamente .txt."""
+• Espressioni regolari precise per caratteri a larghezza intera e Unicode: risolto un problema per cui «.» o gli intervalli di caratteri sostituivano più volte un singolo carattere multi-byte (giapponese, coreano, cinese, caratteri accentati ed emoji).
+• Visualizzazione migliorata del cursore durante lo scorrimento: il cursore non appare più all’inizio della prima riga visibile quando si trova fuori dallo schermo.
+• Modifica rapida, «Sostituisci tutto» istantaneo e anteprima live per Markdown, LaTeX e Mermaid."""
 
 PT_DESC = """O miu é um editor de texto e código simples e leve, criado para tornar desde as suas anotações diárias até a escrita em Markdown e a programação muito mais confortáveis.
 
@@ -364,13 +346,11 @@ Sem anúncios, sem rastreamento e sem coleta de dados. Tudo funciona 100% offlin
 Seja como seu bloco de notas do dia a dia ou como um editor de código confiável, esperamos que o miu torne o seu momento de escrever ainda mais agradável."""
 
 PT_WHATS_NEW = """Obrigado por usar o miu.
-Esta atualização traz novos recursos e melhorias para deixar sua experiência ainda mais confortável:
+A versão 1.0.48 melhora a localização e substituição por expressões regulares multilíngues e a exibição do cursor:
 
-• Mais linguagens compatíveis: adicionamos 25 novas linguagens e formatos de configuração ao destaque de sintaxe, totalizando 49 categorias (mais de 120 extensões).
-• Melhorias na digitação e alinhamento: aprimoramos a exibição de texto durante a composição (IME) e o alinhamento dos números de linha com caracteres de largura total.
-• Teclado e pré-visualização aprimorados: melhoramos a expansão do Emmet no iOS, a rolagem automática com o teclado na tela e a renderização ao alternar a pré-visualização.
-• Layout de tela otimizado: corrigimos o ajuste da área de edição ao girar o iPad entre os modos retrato e paisagem.
-• Melhoria ao salvar: a opção "Salvar como" agora preserva a extensão personalizada informada sem adicionar .txt automaticamente."""
+• Expressões regulares precisas para caracteres de largura total e Unicode: corrigido um problema em que «.» ou intervalos de caracteres substituíam um único caractere multibyte várias vezes (japonês, coreano, chinês, acentos e emojis).
+• Exibição aprimorada do cursor ao rolar: o cursor não é mais exibido no início da primeira linha visível quando está fora da tela.
+• Edição rápida, «Substituir tudo» instantâneo e pré-visualização em tempo real para Markdown, LaTeX e Mermaid."""
 
 RU_DESC = """miu — это простой и лёгкий текстовый и кодовый редактор, созданный для комфортной работы: от быстрых повседневных заметок и текстов в Markdown до программирования.
 
@@ -399,13 +379,11 @@ RU_DESC = """miu — это простой и лёгкий текстовый и
 В качестве ежедневного блокнота или надёжного редактора кода — надеемся, что miu сделает вашу работу с текстом ещё приятнее."""
 
 RU_WHATS_NEW = """Спасибо, что пользуетесь miu.
-В этом обновлении мы добавили новые возможности и улучшения для ещё более комфортной работы:
+В версии 1.0.48 улучшены поиск и замена по регулярным выражениям для многобайтовых символов и отображение курсора:
 
-• Расширена поддержка языков: добавлено 25 новых языков и форматов конфигурации для подсветки синтаксиса (всего 49 категорий и более 120 расширений файлов).
-• Улучшен ввод текста и выравнивание: доработано отображение вводимых символов (IME) до подтверждения и выравнивание номеров строк при использовании полноширинных символов.
-• Улучшены работа с клавиатурой и предпросмотр: исправлено разворачивание сокращений Emmet на iOS, улучшена автопрокрутка при вводе с экранной клавиатуры и отрисовка при переключении предпросмотра.
-• Оптимизирована разметка экрана: исправлено масштабирование области редактора при повороте iPad между портретной и альбомной ориентацией.
-• Улучшено сохранение файлов: при использовании «Сохранить как» теперь корректно сохраняется указанное вами расширение файла без автоматического добавления .txt."""
+• Точная работа регулярных выражений с полноширинными и многоязычными символами: исправлена ошибка, из-за которой шаблон «.» и диапазоны символов заменяли один символ UTF-8 несколько раз (японский, корейский, китайский, кириллица и эмодзи).
+• Улучшено отображение курсора при прокрутке: курсор больше не отображается в начале верхней видимой строки, когда он находится за пределами экрана.
+• Быстрое редактирование, мгновенная «Заменить все» и живой предпросмотр Markdown, LaTeX и Mermaid."""
 
 NL_DESC = """miu is een eenvoudige, lichtgewicht tekst- en code-editor waarmee u prettig werkt aan dagelijkse notities, Markdown-documenten en programmeerprojecten.
 
@@ -434,13 +412,11 @@ Geen advertenties, geen tracking en geen gegevensverzameling. Alles werkt 100% o
 Of u miu nu gebruikt als dagelijks notitieblok of als betrouwbare code-editor, we hopen dat het uw schrijfmomenten net wat aangenamer maakt."""
 
 NL_WHATS_NEW = """Bedankt voor het gebruiken van miu.
-Deze update bevat nieuwe functies en verbeteringen voor nog meer gebruiksgemak:
+Versie 1.0.48 verbetert het zoeken en vervangen met reguliere expressies voor meertalige tekens en de cursorweergave:
 
-• Meer ondersteunde talen: 25 nieuwe talen en configuratieformaten toegevoegd voor syntaxisaccentuering (nu in totaal 49 categorieën en 120+ extensies).
-• Verbeterde tekstinvoer en uitlijning: betere weergave tijdens IME-tekstinvoer en nauwkeurige uitlijning van regelnummers bij tekens met volledige breedte.
-• Soepeler typen en voorvertonen: verbeterde Emmet-uitbreiding op iOS, automatisch scrollen met het schermtoetsenbord en nettere weergave bij het schakelen van de voorvertoning.
-• Geoptimaliseerde scherminrichting: de editor past nu altijd netjes tot aan de schermranden bij het draaien van de iPad tussen staand en liggend formaat.
-• Verbeterd opslaan: 'Bewaar als' behoudt nu uw eigen bestandsextensie zonder automatisch .txt toe te voegen."""
+• Nauwkeurige reguliere expressies voor volledige-breedte- en Unicode-tekens: probleem opgelost waarbij ‘.’ of tekenbereiken één multi-byte UTF-8-teken meerdere keren vervingen (Japans, Koreaans, Chinees, accenttekens en emoji’s).
+• Verbeterde cursorweergave tijdens scrollen: de cursor wordt niet meer aan het begin van de bovenste zichtbare regel getoond wanneer de cursorregel buiten beeld is.
+• Snel bewerken, direct ‘Alles vervangen’ en vloeiende live-voorvertoning voor Markdown, LaTeX en Mermaid."""
 
 SV_DESC = """miu är en enkel och lättviktig text- och kodredigerare som gör allt från dagliga anteckningar till Markdown-skrivande och programmering bekvämt och smidigt.
 
@@ -469,13 +445,11 @@ Inga annonser, ingen spårning och ingen datainsamling. Allt fungerar 100 % offl
 Som dagligt anteckningsblock eller pålitlig kodredigerare – vi hoppas att miu gör din skrivstund lite trevligare."""
 
 SV_WHATS_NEW = """Tack för att du använder miu.
-Den här uppdateringen innehåller nya funktioner och förbättringar för en ännu smidigare upplevelse:
+Version 1.0.48 förbättrar sökning/ersättning med reguljära uttryck för flerspråkiga tecken samt markörvisning vid rullning:
 
-• Fler språk stöds: 25 nya språk och konfigurationsformat har lagts till för syntaxmarkering, totalt 49 kategorier (120+ filändelser).
-• Förbättrad textinmatning och justering: Tydligare visning vid IME-inmatning samt exakt justering av radnummer för helbreddstecken.
-• Bättre tangentbords- och förhandsvisningsfunktion: Förbättrad Emmet-utökning på iOS, mjukare rullning med skärmtangentbordet och snyggare uppritning vid växling av förhandsvisning.
-• Optimerad skärmlayout: Redigeringsytan anpassar sig nu perfekt till skärmens kanter när iPad roteras mellan stående och liggande läge.
-• Förbättrad filsparning: "Spara som" behåller nu din valda filändelse utan att automatiskt lägga till .txt."""
+• Exakta reguljära uttryck för helbredds- och Unicode-tecken: åtgärdade ett problem där ”.” eller teckenintervall ersatte ett enskilt flerbytes UTF-8-tecken flera gånger (japanska, koreanska, kinesiska, å/ä/ö och emojis).
+• Förbättrad markörvisning vid rullning: markören visas inte längre i början av den översta synliga raden när markörraden är utanför skärmen.
+• Snabb redigering, omedelbar ”Ersätt alla” och smidig förhandsvisning för Markdown, LaTeX och Mermaid."""
 
 DA_DESC = """miu er en enkel og let tekst- og kodeeditor, der gør alt fra daglige noter til Markdown-skrivning og programmering behageligt og ubesværet.
 
@@ -504,13 +478,11 @@ Ingen reklamer, ingen sporing og ingen dataindsamling. Alt fungerer 100 % offlin
 Uanset om du bruger miu som daglig notesblok eller som kodeeditor, håber vi, at den gør din skrivetid lidt mere behagelig."""
 
 DA_WHATS_NEW = """Tak fordi du bruger miu.
-Denne opdatering indeholder nye funktioner og forbedringer for en endnu bedre oplevelse:
+Version 1.0.48 forbedrer søgning/erstatning med regulære udtryk for flersprogede tegn samt markørvisning ved rulning:
 
-• Flere understøttede sprog: Tilføjet 25 nye sprog og konfigurationsformater til syntaksfremhævning – nu i alt 49 kategorier (over 120 filendelser).
-• Forbedret tekstindtastning og justering: Bedre visning under IME-indtastning samt præcis justering af linjenumre ved fuldbreddetegn.
-• Bedre tastatur- og forhåndsvisningsoplevelse: Forbedret Emmet-udvidelse på iOS, mere jævn automatisk rulning med skærmtastaturet og pænere visning ved skift af forhåndsvisning.
-• Optimeret skærmlayout: Rettet tilpasning ved rotation af iPad mellem stående og liggende format.
-• Forbedret arkivering: "Gem som" bevarer nu din valgte filendelse uden automatisk at tilføje .txt."""
+• Præcise regulære udtryk for fuldbredde- og Unicode-tegn: rettet en fejl, hvor "." eller tegnintervaller erstattede et enkelt multi-byte UTF-8-tegn flere gange (japansk, koreansk, kinesisk, æ/ø/å og emojis).
+• Forbedret markørvisning under rulning: markøren vises ikke længere i starten af den øverste synlige linje, når markørlinjen er rullet ud af skærmen.
+• Hurtig redigering, øjeblikkelig "Erstat alle" og flydende live-forhåndsvisning af Markdown, LaTeX og Mermaid."""
 
 NO_DESC = """miu er et enkelt og lett tekst- og koderedigeringsprogram som gjør alt fra daglige notater til Markdown-skriving og programmering behagelig og uanstrengt.
 
@@ -539,13 +511,11 @@ Ingen reklame, ingen sporing og ingen datainnsamling. Alt fungerer 100 % offline
 Enten du bruker miu som daglig notisblokk eller som en pålitelig kodeeditor, håper vi den gjør skrivetiden din litt hyggeligere."""
 
 NO_WHATS_NEW = """Takk for at du bruker miu.
-Denne oppdateringen gir nye funksjoner og forbedringer for en enda bedre brukeropplevelse:
+Versjon 1.0.48 forbedrer søk/erstatt med regulære uttrykk for flerspråklige tegn og markørvisning ved rulling:
 
-• Flere støttede språk: Lagt til 25 nye språk og konfigurasjonsformater for syntaksutheving, totalt 49 kategorier (over 120 filtyper).
-• Forbedret tekstinndata og justering: Bedre visning under IME-skriving og nøyaktig justering av linjenumre for fullbreddetegn.
-• Bedre tastatur- og forhåndsvisningsopplevelse: Forbedret Emmet-utvidelse på iOS, jevnere rulling med skjermtastaturet og renere opptegning ved bytte av forhåndsvisning.
-• Optimalisert skjermoppsett: Rettet tilpasning når iPad roteres mellom stående og liggende retning.
-• Forbedret lagring: «Arkiver som» beholder nå filtypen du oppgir uten å legge til .txt automatisk."""
+• Presise regulære uttrykk for fullbredde- og Unicode-tegn: rettet en feil der «.» eller tegnintervaller erstattet et enkelt flerbytes UTF-8-tegn flere ganger (japansk, koreansk, kinesisk, æ/ø/å og emojier).
+• Forbedret markørvisning ved rulling: markøren vises ikke lenger i starten av den øverste synlige linjen når markørlinjen er utenfor skjermen.
+• Rask redigering, umiddelbar «Erstatt alle» og jevn sanntidsvisning for Markdown, LaTeX og Mermaid."""
 
 FI_DESC = """miu on yksinkertainen ja kevyt teksti- ja koodieditori, joka tekee päivittäisistä muistiinpanoista, Markdown-kirjoittamisesta ja ohjelmoinnista miellyttävää ja vaivatonta.
 
@@ -574,13 +544,11 @@ Ei mainoksia, ei seurantaa eikä tiedonkeruuta. Kaikki toimii 100 % offline-tila
 Käytitpä miuta päivittäisenä muistiona tai luotettavana koodieditorina, toivomme sen tekevän kirjoitushetkistäsi hieman mukavampia."""
 
 FI_WHATS_NEW = """Kiitos, että käytät miuta.
-Tämä päivitys tuo uusia ominaisuuksia ja parannuksia entistä sujuvampaan käyttöön:
+Versio 1.0.48 parantaa monikielistä säännöllisten lausekkeiden hakua/korvausta sekä kohdistimen näyttöä vieritettäessä:
 
-• Laajempi kielituki: Lisätty 25 uutta syntaksinkorostuskieltä ja asetustiedostomuotoa – yhteensä 49 kategoriaa (yli 120 tiedostopäätettä).
-• Parannettu tekstinsyöttö ja kohdistus: Selkeämpi IME-syötön esikatselu sekä tarkka rivinumeroiden kohdistus täysleveiden merkkien kanssa.
-• Sujuvampi kirjoitus ja esikatselu: Parannettu Emmet-laajennus iOS:llä, automaattinen vieritys näyttönäppäimistöllä ja siistimpi piirto esikatselua vaihdettaessa.
-• Optimoitu näytön asettelu: Korjattu muokkausalueen sovitus iPadia pysty- ja vaakasuuntaan käännettäessä.
-• Parannettu tallennus: "Tallenna nimellä" säilyttää nyt valitsemasi tiedostopäätteen lisäämättä .txt-päätettä automaattisesti."""
+• Tarkat säännölliset lausekkeet täyden leveyden ja Unicode-merkeille: korjattu ongelma, jossa ”.” tai merkkivälit korvasivat yhden monimuotoisen UTF-8-merkin useaan kertaan (suomen ä/ö, japani, korea, kiina ja emojit).
+• Parannettu kohdistimen näkyvyys vierityksen aikana: kohdistinta ei enää näytetä ylimmän näkyvän rivin alussa, kun kohdistinrivi on näytön ulkopuolella.
+• Nopea muokkaus, välitön ”Korvaa kaikki” ja sulava Markdown-, LaTeX- ja Mermaid-esikatselu."""
 
 PL_DESC = """miu to prosty, lekki edytor tekstu i kodu, zaprojektowany tak, aby codzienne notatki, pisanie w Markdown oraz programowanie były wygodne i przyjemne.
 
@@ -609,13 +577,11 @@ Brak reklam, brak śledzenia i brak gromadzenia danych. Wszystko działa w 100% 
 Zarówno jako codzienny notatnik, jak i niezawodny edytor kodu – mamy nadzieję, że miu uprzyjemni Twój czas spędzony na pisaniu."""
 
 PL_WHATS_NEW = """Dziękujemy za korzystanie z aplikacji miu.
-W tej aktualizacji wprowadziliśmy nowe funkcje i ulepszenia zwiększające komfort pracy:
+Wersja 1.0.48 usprawnia wyszukiwanie i zamianę z użyciem wyrażeń regularnych dla znaków wielojęzycznych oraz wyświetlanie kursora:
 
-• Rozszerzona obsługa języków: dodano 25 nowych języków i formatów konfiguracji do kolorowania składni (łącznie 49 kategorii i ponad 120 rozszerzeń).
-• Ulepszone wprowadzanie tekstu i wyrównanie: poprawiono wyświetlanie tekstu w trakcie składania znaków (IME) oraz wyrównanie numerów wierszy przy znakach pełnej szerokości.
-• Lepsza obsługa klawiatury i podglądu: usprawniono rozwijanie skrótów Emmet w systemie iOS, automatyczne przewijanie z klawiaturą ekranową oraz renderowanie przy przełączaniu podglądu.
-• Zoptymalizowany układ ekranu: poprawiono dopasowanie obszaru edytora podczas obracania iPada między orientacją pionową a poziomą.
-• Ulepszone zapisywanie plików: opcja „Zapisz jako” zachowuje teraz wybrane rozszerzenie pliku bez automatycznego dodawania .txt."""
+• Dokładne wyrażenia regularne dla znaków pełnej szerokości i Unicode: naprawiono błąd, przez który „.” lub zakresy znaków zamieniały pojedynczy znak wielobajtowy UTF-8 wielokrotnie (polskie znaki, japoński, koreański, chiński i emoji).
+• Poprawione wyświetlanie kursora podczas przewijania: kursor nie jest już wyświetlany na początku pierwszego widocznego wiersza, gdy znajduje się poza ekranem.
+• Szybka edycja, błyskawiczne „Zamień wszystko” i podgląd na żywo dla Markdown, LaTeX oraz Mermaid."""
 
 CS_DESC = """miu je jednoduchý a lehký textový a kódový editor, se kterým je psaní každodenních poznámek, textů v Markdownu i programování pohodlné a příjemné.
 
@@ -644,13 +610,11 @@ Hledání a nahrazování (s regulárními výrazy), více kurzorů, čísla ř�
 Ať už miu používáte jako každodenní zápisník nebo jako spolehlivý editor kódu, věříme, že vám zpříjemní každou chvíli u psaní."""
 
 CS_WHATS_NEW = """Děkujeme, že používáte miu.
-Tato aktualizace přináší nové funkce a vylepšení pro ještě pohodlnější práci:
+Verze 1.0.48 vylepšuje vyhledávání a nahrazování regulárními výrazy pro vícejazyčné znaky a zobrazení kurzoru při posouvání:
 
-• Rozšířená podpora jazyků: přidáno 25 nových jazyků a konfiguračních formátů pro zvýrazňování syntaxe, celkem nyní 49 kategorií (přes 120 přípon).
-• Vylepšené zadávání textu a zarovnání: lepší zobrazení rozepsaného textu (IME) a přesné zarovnání čísel řádků u znaků s plnou šířkou.
-• Lepší psaní a náhled: vylepšeno rozbalování zkratek Emmet na iOS, plynulejší automatické posouvání se softwarovou klávesnicí a čistší vykreslování při přepínání náhledu.
-• Optimalizované rozvržení obrazovky: opraveno přizpůsobení editoru při otáčení iPadu mezi zobrazením na výšku a na šířku.
-• Vylepšené ukládání: funkce „Uložit jako“ nyní zachová vámi zadanou příponu souboru bez automatického přidávání .txt."""
+• Přesné regulární výrazy pro znaky s plnou šířkou a Unicode: opraven problém, kdy vzor „.“ nebo rozsahy znaků nahrazovaly jeden vícebajtový znak UTF-8 vícekrát (české znaky, japonština, korejština, čínština a emoji).
+• Vylepšené zobrazení kurzoru při posouvání: kurzor se již nezobrazuje na začátku prvního viditelného řádku, pokud je mimo obrazovku.
+• Rychlé úpravy, okamžité „Nahradit vše“ a plynulý živý náhled pro Markdown, LaTeX a Mermaid."""
 
 HU_DESC = """A miu egy egyszerű, könnyed szöveg- és kódszerkesztő, amely a napi gyors jegyzeteléstől a Markdown-szövegíráson át a programozásig minden helyzetben kényelmes használatot nyújt.
 
@@ -679,13 +643,11 @@ Nincsenek reklámok, nincs követés és nincs adatgyűjtés. Minden funkció 10
 Akár mindennapi jegyzettömbként, akár megbízható kódszerkesztőként használja, reméljük, hogy a miu kellemesebbé teszi az írással töltött időt."""
 
 HU_WHATS_NEW = """Köszönjük, hogy a miu alkalmazást használja.
-Ez a frissítés új funkciókat és finomításokat tartalmaz a még kényelmesebb használat érdekében:
+Az 1.0.48-as verzió javítja a többnyelvű reguláris kifejezéses keresést/cserét és a kurzor megjelenítését görgetéskor:
 
-• Bővített nyelvi támogatás: 25 új nyelvvel és konfigurációs formátummal bővült a szintaxiskiemelés, így már összesen 49 kategóriát (több mint 120 kiterjesztést) támogat.
-• Javított szövegbevitel és igazítás: pontosabb megjelenítés IME-szövegbevitel közben, valamint szépen igazított sorszámok a teljes szélességű karaktereket tartalmazó soroknál.
-• Jobb gépelési és előnézeti élmény: javított Emmet-kibontás iOS-en, egyenletesebb automatikus görgetés a képernyő-billentyűzettel, és tisztább megjelenítés az előnézet váltásakor.
-• Optimalizált képernyőelrendezés: javítottuk a szerkesztőterület illeszkedését az iPad álló és fekvő tájolása közötti forgatáskor.
-• Fejlesztett mentés: a „Mentés másként” funkció mostantól megtartja a megadott egyéni fájlkiterjesztést anélkül, hogy automatikusan .txt-t fűzne hozzá."""
+• Pontos reguláris kifejezések teljes szélességű és Unicode karakterekhez: javítottuk azt a hibát, amelynél a „.” vagy a karaktertartományok többször cseréltek le egyetlen többbájtos UTF-8 karaktert (magyar ékezetes betűk, japán, koreai, kínai és emojik).
+• Javított kurzormegjelenítés görgetés közben: a kurzor többé nem jelenik meg a legfelső látható sor elején, amikor a képernyőn kívül van.
+• Gyors szerkesztés, azonnali „Összes cseréje” és folyamatos Markdown, LaTeX és Mermaid élő előnézet."""
 
 RO_DESC = """miu este un editor de text și cod simplu și ușor, creat pentru ca notițele zilnice, redactarea în Markdown și programarea să fie cât mai plăcute și confortabile.
 
@@ -714,13 +676,11 @@ Fără reclame, fără urmărire și fără colectare de date. Totul funcționea
 Fie ca agendă de zi cu zi, fie ca editor de cod de încredere, sperăm că miu vă va face timpul petrecut scriind mai plăcut."""
 
 RO_WHATS_NEW = """Vă mulțumim că folosiți miu.
-Această actualizare aduce funcții noi și îmbunătățiri pentru o experiență și mai confortabilă:
+Versiunea 1.0.48 îmbunătățește căutarea și înlocuirea cu expresii regulate pentru caractere multilingve și afișarea cursorului:
 
-• Mai multe limbaje suportate: am adăugat 25 de limbaje și formate de configurare noi pentru evidențierea sintaxei, ajungând la un total de 49 de categorii (peste 120 de extensii).
-• Introducere de text și aliniere îmbunătățite: afișare mai clară în timpul compoziției IME și aliniere precisă a numerelor de rând pentru caracterele cu lățime completă.
-• Tastare și previzualizare optimizate: extindere Emmet îmbunătățită pe iOS, derulare automată mai lină cu tastatura pe ecran și afișare mai curată la comutarea previzualizării.
-• Aspect optimizat al ecranului: am corectat adaptarea zonei de editare la rotirea iPad-ului între modurile portret și peisaj.
-• Salvare îmbunătățită: opțiunea „Salvează ca” păstrează acum extensia personalizată fără a adăuga automat .txt."""
+• Expresii regulate precise pentru caractere Unicode și cu lățime completă: s-a rezolvat o problemă prin care „.” sau intervalele de caractere înlocuiau de mai multe ori un singur caracter UTF-8 multi-byte (diacritice, japoneză, coreeană, chineză și emoji).
+• Afișare îmbunătățită a cursorului la derulare: cursorul nu mai apare la începutul primei linii vizibile atunci când este în afara ecranului.
+• Editare rapidă, „Înlocuiește tot” instantaneu și previzualizare în timp real pentru Markdown, LaTeX și Mermaid."""
 
 EL_DESC = """Το miu είναι ένας απλός και ελαφρύς επεξεργαστής κειμένου και κώδικα, σχεδιασμένος ώστε οι καθημερινές σημειώσεις, η συγγραφή σε Markdown και ο προγραμματισμός να γίνονται άνετα και ευχάριστα.
 
@@ -749,13 +709,11 @@ EL_DESC = """Το miu είναι ένας απλός και ελαφρύς επ�
 Είτε ως καθημερινό σημειωματάριο είτε ως αξιόπιστος επεξεργαστής κώδικα, ελπίζουμε το miu να κάνει τον χρόνο που αφιερώνετε στο γράψιμο πιο ευχάριστο."""
 
 EL_WHATS_NEW = """Σας ευχαριστούμε που χρησιμοποιείτε το miu.
-Αυτή η ενημέρωση φέρνει νέες δυνατότητες και βελτιώσεις για ακόμα πιο άνετη εμπειρία:
+Η έκδοση 1.0.48 βελτιώνει την αναζήτηση/αντικατάσταση Regex για πολυγλωσσικούς χαρακτήρες και την εμφάνιση του δρομέα:
 
-• Υποστήριξη περισσότερων γλωσσών: προστέθηκαν 25 νέες γλώσσες και μορφές αρχείων ρυθμίσεων στην επισήμανση σύνταξης, φτάνοντας συνολικά τις 49 κατηγορίες (120+ επεκτάσεις).
-• Βελτιωμένη εισαγωγή κειμένου και ευθυγράμμιση: καλύτερη εμφάνιση κατά τη σύνθεση χαρακτήρων (IME) και ακριβής ευθυγράμμιση αριθμών γραμμής με χαρακτήρες πλήρους πλάτους.
-• Καλύτερη εμπειρία πληκτρολόγησης και προεπισκόπησης: βελτιώθηκε η ανάπτυξη Emmet στο iOS, η αυτόματη κύλιση με το πληκτρολόγιο οθόνης και η απεικόνιση κατά την εναλλαγή της προεπισκόπησης.
-• Βελτιστοποιημένη διάταξη οθόνης: διορθώθηκε η προσαρμογή της περιοχής επεξεργασίας κατά την περιστροφή του iPad μεταξύ κατακόρυφου και οριζόντιου προσανατολισμού.
-• Βελτιωμένη αποθήκευση: η «Αποθήκευση ως» διατηρεί πλέον την προσαρμοσμένη επέκταση αρχείου χωρίς αυτόματη προσθήκη του .txt."""
+• Ακριβείς κανονικές εκφράσεις (Regex) για χαρακτήρες πλήρους πλάτους και Unicode: διορθώθηκε ένα ζήτημα όπου το «.» ή τα εύρη χαρακτήρων αντικαθιστούσαν πολλαπλές φορές έναν χαρακτήρα UTF-8 (ελληνικά, ιαπωνικά, κορεατικά, κινεζικά και emoji).
+• Βελτιωμένη εμφάνιση δρομέα κατά την κύλιση: ο δρομέας δεν εμφανίζεται πλέον στην αρχή της πρώτης ορατής γραμμής όταν βρίσκεται εκτός οθόνης.
+• Γρήγορη επεξεργασία, ακαριαία «Αντικατάσταση όλων» και ζωντανή προεπισκόπηση Markdown, LaTeX & Mermaid."""
 
 TR_DESC = """miu; günlük kısa notlardan Markdown yazılarına ve programlamaya kadar her türlü metin çalışmasını keyifli ve rahat hale getirmek için tasarlanmış sade ve hafif bir metin ve kod düzenleyicidir.
 
@@ -784,13 +742,11 @@ Reklam, takip veya veri toplama yoktur. Tüm özellikler cihazınızda %100 çev
 İster günlük not defteriniz ister güvenilir kod düzenleyiciniz olarak, miu'nun yazma zamanınızı daha keyifli hale getirmesini dileriz."""
 
 TR_WHATS_NEW = """miu'yu kullandığınız için teşekkür ederiz.
-Bu güncellemede daha rahat bir kullanım için aşağıdaki yenilikleri ve iyileştirmeleri yaptık:
+1.0.48 sürümü, çok dilli düzenli ifade (Regex) arama/değiştirme doğruluğunu ve kaydırma sırasında imleç görünümünü iyileştirir:
 
-• Genişletilmiş Dil Desteği: Sözdizimi vurgulamaya 25 yeni dil ve yapılandırma biçimi eklendi; artık toplam 49 kategori (120'den fazla uzantı) destekleniyor.
-• Geliştirilmiş Metin Girişi ve Hizalama: IME ile yazım sırasındaki onaylanmamış metin görünümü iyileştirildi ve tam genişlikli karakter içeren satırlarda satır numarası hizalaması düzeltildi.
-• Klavye ve Önizleme İyileştirmeleri: iOS'te Emmet kısaltma genişletmesi, ekran klavyesiyle yazarken otomatik kaydırma ve önizleme geçişlerindeki çizim performansı iyileştirildi.
-• Optimize Edilmiş Ekran Düzeni: iPad'i dikey ve yatay konumlar arasında döndürürken düzenleme alanının ekran kenarlarına tam oturması sağlandı.
-• Kaydetme İyileştirmesi: "Farklı Kaydet" kullanılırken belirlediğiniz dosya uzantısının sonuna otomatik .txt eklenmeden korunması sağlandı."""
+• Tam Genişlikli ve Çok Dilli Karakterlerde Doğru Regex Eşleşmesi: Düzenli ifadelerde "." veya karakter aralıkları kullanıldığında tek bir UTF-8 karakterinin birden fazla kez değiştirilmesine neden olan sorun giderildi (Türkçe, Japonca, Korece, Çince ve emojiler).
+• Kaydırma Sırasında İmleç Görünümü İyileştirildi: İmleç ekran dışına kaydırıldığında en üstteki görünür satırın başında imleç görünmesi sorunu düzeltildi.
+• Hızlı düzenleme, anında "Tümünü Değiştir" ve akıcı Markdown, LaTeX ve Mermaid Canlı Önizlemesi."""
 
 UK_DESC = """miu — це простий і легкий редактор тексту та коду, створений для того, щоб щоденні нотатки, написання текстів у Markdown і програмування були максимально зручними та приємними.
 
@@ -819,13 +775,11 @@ UK_DESC = """miu — це простий і легкий редактор тек
 Як щоденний записник або надійний редактор коду — сподіваємося, що miu зробить ваш час за письмом приємнішим."""
 
 UK_WHATS_NEW = """Дякуємо, що користуєтеся miu.
-У цьому оновленні ми додали нові функції та покращення для ще комфортнішої роботи:
+У версії 1.0.48 покращено пошук і заміну за регулярними виразами для багатомовних символів та відображення курсора:
 
-• Розширена підтримка мов: додано 25 нових мов і форматів конфігурації для підсвічування синтаксису — загалом 49 категорій (понад 120 розширень).
-• Покращене введення тексту та вирівнювання: вдосконалено відображення тексту під час набору через IME та вирівнювання номерів рядків із повноширинними символами.
-• Покращена робота з клавіатурою та переглядом: виправлено розгортання Emmet на iOS, покращено автопрокрутку з екранною клавіатурою та відображення під час перемикання попереднього перегляду.
-• Оптимізована розмітка екрана: виправлено масштабування області редактора під час повороту iPad між книжковою та альбомною орієнтацією.
-• Покращене збереження: функція «Зберегти як» тепер зберігає вказане вами розширення файлу без автоматичного додавання .txt."""
+• Точна робота регулярних виразів із повноширинними та Unicode-символами: виправлено помилку, через яку «.» або діапазони символів замінювали один символ UTF-8 декілька разів (українські, японські, корейські, китайські символи та емодзі).
+• Покращено відображення курсора під час прокручування: курсор більше не з’являється на початку верхнього видимого рядка, коли він за межами екрана.
+• Швидке редагування, миттєва «Замінити все» та живий перегляд Markdown, LaTeX і Mermaid."""
 
 VI_DESC = """miu là trình soạn thảo văn bản và mã nguồn đơn giản, gọn nhẹ, mang lại cảm giác thoải mái cho mọi nhu cầu từ ghi chú nhanh hàng ngày, viết tài liệu Markdown cho đến lập trình.
 
@@ -854,13 +808,11 @@ Không quảng cáo, không theo dõi và không thu thập dữ liệu. Mọi t
 Dù dùng làm sổ tay hàng ngày hay trình sửa code đáng tin cậy, hy vọng miu sẽ giúp khoảng thời gian viết lách của bạn thêm phần dễ chịu."""
 
 VI_WHATS_NEW = """Cảm ơn bạn đã luôn sử dụng miu.
-Bản cập nhật này bổ sung thêm tính năng mới và các cải tiến giúp việc soạn thảo thuận tiện hơn:
+Phiên bản 1.0.48 cải thiện độ chính xác Tìm kiếm/Thay thế Regex đa ngôn ngữ và hiển thị con trỏ khi cuộn trang:
 
-• Mở rộng ngôn ngữ hỗ trợ: Thêm 25 ngôn ngữ và định dạng tệp cấu hình mới cho tô màu cú pháp, nâng tổng số lên 49 danh mục (hơn 120 phần mở rộng tệp).
-• Cải thiện bộ gõ và căn lề: Hiển thị rõ ràng các ký tự đang gõ chưa xác nhận (IME) và căn chỉnh số dòng thẳng hàng với các ký tự full-width.
-• Cải thiện thao tác bàn phím và Xem trước: Khắc phục mở rộng gõ tắt Emmet trên iOS, tự động cuộn mượt hơn khi dùng bàn phím ảo và hiển thị ổn định khi bật/tắt chế độ xem trước.
-• Tối ưu bố cục màn hình: Điều chỉnh vùng soạn thảo vừa khít viền màn hình khi xoay dọc/ngang trên iPad.
-• Cải thiện lưu tệp: Tính năng "Lưu thành" giữ nguyên phần mở rộng tệp tùy chỉnh của bạn mà không tự động thêm đuôi .txt."""
+• Khớp biểu thức chính quy (Regex) chính xác cho ký tự toàn角 và đa ngôn ngữ: Đã khắc phục lỗi khi dùng "." hoặc phạm vi ký tự trong Regex khiến 1 ký tự UTF-8 nhiều byte (tiếng Việt, Nhật, Hàn, Trung và emoji) bị thay thế lặp lại nhiều lần.
+• Cải thiện hiển thị con trỏ khi cuộn trang: Đã sửa lỗi con trỏ hiển thị ở đầu dòng đầu tiên đang thấy khi dòng chứa con trỏ thực tế ở ngoài màn hình.
+• Chỉnh sửa tốc độ cao, "Thay thế tất cả" tức thì và Xem trước trực tiếp Markdown, LaTeX & Mermaid."""
 
 TH_DESC = """miu คือแอปแก้ไขข้อความและโค้ดที่เรียบง่ายและทำงานได้อย่างรวดเร็ว ออกแบบมาเพื่อให้ทั้งการจดบันทึกประจำวัน การเขียนบทความด้วย Markdown และการเขียนโปรแกรมเป็นเรื่องที่สบายตาและน่าใช้งาน
 
@@ -889,13 +841,11 @@ TH_DESC = """miu คือแอปแก้ไขข้อความและ
 ไม่ว่าจะใช้เป็นสมุดโน้ตประจำวันหรือเครื่องมือเขียนโค้ดคู่ใจ เราหวังว่า miu จะช่วยให้ช่วงเวลาแห่งการเขียนของคุณน่าเพลิดเพลินยิ่งขึ้น"""
 
 TH_WHATS_NEW = """ขอบคุณที่ใช้บริการ miu เสมอมา
-ในการอัปเดตครั้งนี้ เราได้เพิ่มฟีเจอร์และปรับปรุงการทำงานเพื่อให้คุณใช้งานได้สะดวกสบายยิ่งขึ้น:
+ในเวอร์ชัน 1.0.48 เราได้ปรับปรุงความแม่นยำในการค้นหา/แทนที่ด้วย Regex สำหรับอักขระหลายภาษา และแก้ไขการแสดงเคอร์เซอร์ขณะเลื่อนหน้าจอ:
 
-• เพิ่มภาษาที่รองรับ: เพิ่มการไฮไลต์ไวยากรณ์อีก 25 ภาษาและไฟล์ตั้งค่า รวมเป็น 49 หมวดหมู่ (มากกว่า 120 นามสกุลไฟล์)
-• ปรับปรุงการพิมพ์และการจัดแนวบรรทัด: แสดงข้อความระหว่างกำลังพิมพ์ (IME) ได้อย่างชัดเจน และปรับตำแหน่งเลขบรรทัดให้ตรงกับอักษรแบบเต็มความกว้างอย่างสวยงาม
-• ปรับปรุงการพิมพ์และโหมดพรีวิว: ปรับปรุงการขยายตัวย่อ Emmet บน iOS การเลื่อนหน้าจออัตโนมัติเมื่อใช้แป้นพิมพ์บนหน้าจอ และการแสดงผลเมื่อสลับโหมดพรีวิว
-• ปรับแต่งเลย์เอาต์หน้าจอ: แก้ไขพื้นที่แสดงผลของเอดิเตอร์ให้พอดีกับขอบหน้าจอเมื่อหมุน iPad สลับระหว่างแนวตั้งและแนวนอน
-• ปรับปรุงการบันทึกไฟล์: "บันทึกเป็น" สามารถใช้นามสกุลไฟล์ที่คุณกำหนดเองได้โดยไม่เติม .txt ต่อท้ายโดยอัตโนมัติ"""
+• จับคู่และแทนที่ด้วยนิพจน์ทั่วไป (Regex) อย่างแม่นยำทุกภาษา: แก้ไขปัญหาการใช้ "." หรือช่วงอักขระใน Regex ที่เคยแปลงอักขระ UTF-8 แบบหลายไบต์ (ไทย ญี่ปุ่น เกาหลี จีน และอิโมจิ) ซ้ำหลายครั้งต่อ 1 ตัวอักษร
+• ปรับปรุงการแสดงเคอร์เซอร์เมื่อเลื่อนหน้าจอ: แก้ไขปัญหาเคอร์เซอร์แสดงที่ต้นบรรทัดแรกของหน้าจอเมื่อบรรทัดที่มีเคอร์เซอร์จริงอยู่นอกหน้าจอ
+• แก้ไขข้อความรวดเร็ว "แทนที่ทั้งหมด" ทันใจ พร้อมพรีวิวสด Markdown, LaTeX และ Mermaid"""
 
 ID_DESC = """miu adalah editor teks dan kode yang sederhana serta ringan, dirancang agar nyaman digunakan mulai dari mencatat ide harian, menulis dokumen Markdown, hingga pemrograman.
 
@@ -924,13 +874,11 @@ Tanpa iklan, tanpa pelacakan, dan tanpa pengumpulan data. Semua fitur berjalan 1
 Baik sebagai buku catatan sehari-hari maupun editor kode andalan, semoga miu dapat membuat waktu menulis Anda menjadi lebih menyenangkan."""
 
 ID_WHATS_NEW = """Terima kasih telah menggunakan miu.
-Pembaruan kali ini menghadirkan penambahan fitur dan peningkatan agar pengalaman menulis Anda semakin nyaman:
+Versi 1.0.48 meningkatkan akurasi Cari/Ganti Regex multibahasa serta tampilan kursor saat menggulir:
 
-• Penambahan Bahasa: Menambahkan 25 bahasa dan format konfigurasi baru pada sorotan sintaks, kini mendukung total 49 kategori (lebih dari 120 ekstensi file).
-• Peningkatan Input Teks & Perataan Baris: Memperbaiki tampilan teks saat proses pengetikan IME serta merapikan perataan nomor baris pada karakter lebar penuh.
-• Peningkatan Keyboard & Pratinjau: Memperbaiki ekspansi Emmet di iOS, pengguliran otomatis saat mengetik dengan keyboard layar, serta tampilan saat mengalihkan pratinjau.
-• Optimalisasi Tata Letak Layar: Memperbaiki ukuran area editor agar selalu pas hingga ke tepi layar saat memutar iPad antara posisi vertikal dan horizontal.
-• Peningkatan Penyimpanan File: Fitur "Simpan Sebagai" kini mempertahankan ekstensi file pilihan Anda tanpa menambahkan .txt secara otomatis."""
+• Pencocokan Regex yang Akurat untuk Karakter Lebar Penuh & Unicode: Memperbaiki masalah saat menggunakan "." atau rentang karakter dalam Regex yang sebelumnya mengganti satu karakter UTF-8 multibyte (Jepang, Korea, Mandarin, aksen, dan emoji) beberapa kali.
+• Tampilan Kursor Lebih Baik Saat Menggulir: Kursor tidak lagi muncul di awal baris teratas yang terlihat saat baris kursor sebenarnya berada di luar layar.
+• Pengeditan cepat, "Ganti Semua" instan, dan Pratinjau Langsung Markdown, LaTeX & Mermaid."""
 
 MS_DESC = """miu ialah penyunting teks dan kod yang ringkas serta ringan, direka untuk memberikan keselesaan sama ada ketika mencatat nota harian, menulis dokumen Markdown mahupun melakukan pengaturcaraan.
 
@@ -959,13 +907,11 @@ Tiada iklan, tiada penjejakan dan tiada pengumpulan data. Semua ciri berfungsi 1
 Sama ada sebagai buku nota harian atau penyunting kod yang boleh dipercayai, kami berharap miu menjadikan masa menulis anda lebih menyenangkan."""
 
 MS_WHATS_NEW = """Terima kasih kerana menggunakan miu.
-Kemas kini ini membawakan ciri baharu dan penambahbaikan untuk pengalaman yang lebih selesa:
+Versi 1.0.48 meningkatkan ketepatan Cari/Ganti Regex berbilang bahasa serta paparan kursor semasa menatal:
 
-• Sokongan Bahasa Diperluas: Menambah 25 bahasa dan format konfigurasi baharu untuk penyerlahan sintaks, kini menyokong 49 kategori (lebih 120 sambungan fail).
-• Penambahbaikan Input Teks & Penjajaran: Memperbaiki paparan teks semasa menaip melalui IME dan menjajarkan nombor baris dengan kemas bagi aksara lebar penuh.
-• Papan Kekunci & Pratonton Lebih Baik: Memperbaiki pengembangan Emmet pada iOS, tatalan automatik dengan papan kekunci skrin dan paparan semasa menukar pratonton.
-• Susun Atur Skrin Dioptimumkan: Memastikan ruang penyunting sentiasa muat dengan kemas pada tepi skrin apabila memutar iPad antara mod potret dan landskap.
-• Penambahbaikan Penyimpanan: "Simpan Sebagai" kini mengekalkan sambungan fail pilihan anda tanpa menambah .txt secara automatik."""
+• Padanan Regex yang Tepat untuk Aksara Lebar Penuh & Unicode: Memperbaiki masalah apabila menggunakan "." atau julat aksara dalam Regex yang sebelum ini menggantikan satu aksara UTF-8 berbilang bait (Jepun, Korea, Cina, aksara beraksen dan emoji) beberapa kali.
+• Paparan Kursor Lebih Baik Semasa Menatal: Kursor tidak lagi muncul pada permulaan baris teratas yang kelihatan apabila baris kursor sebenar berada di luar skrin.
+• Penyuntingan pantas, "Ganti Semua" serta-merta dan Pratonton Langsung Markdown, LaTeX & Mermaid."""
 
 HI_DESC = """miu एक सरल और हल्का टेक्स्ट व कोड एडिटर है, जिसे रोज़मर्रा के छोटे नोट्स से लेकर Markdown लेखन और प्रोग्रामिंग तक हर काम को सहज और आरामदायक बनाने के लिए डिज़ाइन किया गया है।
 
@@ -994,13 +940,11 @@ UTF-8, Shift_JIS, EUC-JP, UTF-16 और अन्य एन्कोडिंग
 चाहे आप इसे दैनिक नोटपैड के रूप में उपयोग करें या एक भरोसेमंद कोड एडिटर के रूप में, हमें उम्मीद है कि miu आपके लिखने के समय को और सुखद बनाएगा।"""
 
 HI_WHATS_NEW = """miu का उपयोग करने के लिए धन्यवाद।
-इस अपडेट में आपके अनुभव को और बेहतर बनाने के लिए निम्नलिखित नई सुविधाएँ और सुधार किए गए हैं:
+संस्करण 1.0.48 में बहुभाषी रेगेक्स (Regex) खोज/बदलाव की सटीकता और स्क्रॉल करते समय कर्सर प्रदर्शन में सुधार किया गया है:
 
-• अधिक भाषाओं का समर्थन: सिंटैक्स हाइलाइटिंग में 25 नई भाषाएँ और कॉन्फ़िगरेशन फ़ॉर्मेट जोड़े गए हैं, जिससे अब कुल 49 श्रेणियाँ (120+ एक्सटेंशन) समर्थित हैं।
-• बेहतर टेक्स्ट इनपुट और संरेखण: IME इनपुट के दौरान अक्षरों के लाइव प्रदर्शन में सुधार किया गया है और पूर्ण-चौड़ाई (full-width) वाले अक्षरों के साथ लाइन नंबरों को सटीक रूप से संरेखित किया गया है।
-• कीबोर्ड और प्रीव्यू में सुधार: iOS पर Emmet विस्तार, ऑन-स्क्रीन कीबोर्ड के साथ ऑटो-स्क्रॉलिंग और लाइव प्रीव्यू बदलते समय रेंडरिंग को बेहतर बनाया गया है।
-• स्क्रीन लेआउट अनुकूलन: iPad को पोर्ट्रेट और लैंडस्केप में घुमाने पर एडिटर क्षेत्र अब स्क्रीन के किनारों तक पूरी तरह फ़िट रहता है।
-• फ़ाइल सहेजने में सुधार: "इस रूप में सहेजें" (Save As) में अब आपके द्वारा दिया गया कस्टम एक्सटेंशन सुरक्षित रहता है और अपने आप .txt नहीं जुड़ता।"""
+• पूर्ण-चौड़ाई और बहुभाषी यूनिकोड अक्षरों के लिए सटीक रेगेक्स मिलान: रेगेक्स में "." या अक्षर श्रेणियों का उपयोग करने पर एक मल्टी-बाइट अक्षर (हिंदी, जापानी, कोरियाई, चीनी और इमोजी) के कई बार बदलने की समस्या को ठीक किया गया है।
+• स्क्रॉल करते समय कर्सर दृश्यता में सुधार: कर्सर वाली पंक्ति के स्क्रीन से बाहर होने पर सबसे ऊपर दिखने वाली पंक्ति की शुरुआत में कर्सर दिखने की समस्या को ठीक किया गया है।
+• तेज़ संपादन, तुरंत "सभी बदलें" और सहज Markdown, LaTeX व Mermaid लाइव प्रीव्यू।"""
 
 SUPPORT_URL = "https://github.com/kenjinote/miu"
 
@@ -1085,6 +1029,88 @@ ASC_PROMOTIONAL_TEXT = {
 
 for _loc, _pt in ASC_PROMOTIONAL_TEXT.items():
     assert len(_pt) <= 170, f"Promotional text for {_loc} exceeds 170 chars ({len(_pt)}): {_pt}"
+
+# Map of App Store Connect locale codes -> AppInfo subtitle (<= 30 characters, direct "Text Editor" in each language)
+ASC_SUBTITLES = {
+    "ja": "テキストエディタ",
+    "en-US": "Text Editor",
+    "en-GB": "Text Editor",
+    "en-AU": "Text Editor",
+    "en-CA": "Text Editor",
+    "zh-Hans": "文本编辑器",
+    "zh-Hant": "文字編輯器",
+    "ko": "텍스트 에디터",
+    "de-DE": "Texteditor",
+    "fr-FR": "Éditeur de texte",
+    "fr-CA": "Éditeur de texte",
+    "es-ES": "Editor de texto",
+    "es-MX": "Editor de texto",
+    "it": "Editor di testo",
+    "pt-BR": "Editor de Texto",
+    "pt-PT": "Editor de texto",
+    "ru": "Текстовый редактор",
+    "nl-NL": "Teksteditor",
+    "sv": "Textredigerare",
+    "da": "Teksteditor",
+    "no": "Tekstredigerer",
+    "fi": "Tekstieditori",
+    "pl": "Edytor tekstu",
+    "cs": "Textový editor",
+    "hu": "Szövegszerkesztő",
+    "ro": "Editor de text",
+    "el": "Επεξεργαστής κειμένου",
+    "tr": "Metin Düzenleyici",
+    "uk": "Текстовий редактор",
+    "vi": "Trình soạn thảo văn bản",
+    "th": "โปรแกรมแก้ไขข้อความ",
+    "id": "Editor Teks",
+    "ms": "Penyunting Teks",
+    "hi": "टेक्स्ट एडिटर",
+}
+
+for _loc, _sub in ASC_SUBTITLES.items():
+    assert len(_sub) <= 30, f"Subtitle for {_loc} exceeds 30 chars ({len(_sub)}): {_sub}"
+
+# Map of App Store Connect locale codes -> Fallback App Name when "miu" is already taken (<= 30 characters)
+ASC_FALLBACK_NAMES = {
+    "ja": "miu – シンプルなテキストエディタ",
+    "en-US": "miu – Minimal Text Editor",
+    "en-GB": "miu – Minimal Text Editor",
+    "en-AU": "miu – Minimal Text Editor",
+    "en-CA": "miu – Minimal Text Editor",
+    "zh-Hans": "miu – 极简文本编辑器",
+    "zh-Hant": "miu – 極簡文字編輯器",
+    "ko": "miu – 심플 텍스트 에디터",
+    "de-DE": "miu – Einfacher Texteditor",
+    "fr-FR": "miu – Éditeur de texte simple",
+    "fr-CA": "miu – Éditeur de texte simple",
+    "es-ES": "miu – Editor de texto simple",
+    "es-MX": "miu – Editor de texto simple",
+    "it": "miu – Editor di testo semplice",
+    "pt-BR": "miu – Editor de texto simples",
+    "pt-PT": "miu – Editor de texto simples",
+    "ru": "miu – Лёгкий редактор текста",
+    "nl-NL": "miu – Simpele teksteditor",
+    "sv": "miu – Enkel textredigerare",
+    "da": "miu – Enkel teksteditor",
+    "no": "miu – Enkel tekstredigerer",
+    "fi": "miu – Selkeä tekstieditori",
+    "pl": "miu – Prosty edytor tekstu",
+    "cs": "miu – Jednoduchý editor textu",
+    "hu": "miu – Könnyű szövegszerkesztő",
+    "ro": "miu – Editor de text simplu",
+    "el": "miu – Επεξεργαστής κειμένου",
+    "tr": "miu – Basit Metin Düzenleyici",
+    "uk": "miu – Простий редактор тексту",
+    "vi": "miu – Soạn thảo văn bản nhẹ",
+    "th": "miu – ตัวแก้ไขข้อความอย่างง่าย",
+    "id": "miu – Editor Teks Sederhana",
+    "ms": "miu – Penyunting Teks Ringkas",
+    "hi": "miu – सरल टेक्स्ट एडिटर",
+}
+
+for _loc, _nm in ASC_FALLBACK_NAMES.items():
+    assert len(_nm) <= 30, f"Fallback name for {_loc} exceeds 30 chars ({len(_nm)}): {_nm}"
 
 # Map of App Store Connect locale codes -> (description, whatsNew)
 ASC_LOCALIZATIONS = {
@@ -1243,27 +1269,42 @@ def sync_app_info_localizations(app_id, app_name, headers):
         updated_count = 0
         created_count = 0
         for locale in ASC_LOCALIZATIONS.keys():
+            subtitle = ASC_SUBTITLES[locale]
+            fallback_name = ASC_FALLBACK_NAMES[locale]
             if locale in existing_locales:
                 loc_obj = existing_locales[locale]
                 loc_id = loc_obj["id"]
-                cur_url = (loc_obj.get("attributes", {}).get("privacyPolicyUrl") or "").strip()
-                if cur_url == privacy_url:
+                attrs = loc_obj.get("attributes", {})
+                cur_name = (attrs.get("name") or "").strip()
+                cur_url = (attrs.get("privacyPolicyUrl") or "").strip()
+                cur_sub = (attrs.get("subtitle") or "").strip()
+
+                # Keep "miu" if this locale was able to claim "miu"; otherwise use the localized "miu – ..." name
+                target_name = "miu" if cur_name == "miu" else fallback_name
+
+                if cur_name == target_name and cur_url == privacy_url and cur_sub == subtitle:
                     updated_count += 1
-                    print(f"  [OK] AppInfo {locale} privacyPolicyUrl already set ({privacy_url})")
+                    print(f"  [OK] AppInfo {locale} name='{cur_name}', subtitle='{subtitle}' already set")
                     continue
+
+                patch_attrs = {
+                    "subtitle": subtitle,
+                    "privacyPolicyUrl": privacy_url,
+                }
+                if cur_name != target_name:
+                    patch_attrs["name"] = target_name
+
                 patch_payload = {
                     "data": {
                         "type": "appInfoLocalizations",
                         "id": loc_id,
-                        "attributes": {
-                            "privacyPolicyUrl": privacy_url,
-                        },
+                        "attributes": patch_attrs,
                     }
                 }
                 res_p = requests.patch(f"{BASE_URL}/appInfoLocalizations/{loc_id}", headers=headers, json=patch_payload)
                 if res_p.status_code == 200:
                     updated_count += 1
-                    print(f"  [OK] Updated AppInfo {locale} privacyPolicyUrl -> {privacy_url}")
+                    print(f"  [OK] Updated AppInfo {locale} name='{target_name}' (was '{cur_name}'), subtitle='{subtitle}'")
                 else:
                     print(f"  [ERR] Failed to update AppInfo {locale} (HTTP {res_p.status_code}: {res_p.text[:200]})")
             else:
@@ -1273,6 +1314,7 @@ def sync_app_info_localizations(app_id, app_name, headers):
                         "attributes": {
                             "locale": locale,
                             "name": "miu",
+                            "subtitle": subtitle,
                             "privacyPolicyUrl": privacy_url,
                         },
                         "relationships": {
@@ -1288,19 +1330,19 @@ def sync_app_info_localizations(app_id, app_name, headers):
                 res = requests.post(f"{BASE_URL}/appInfoLocalizations", headers=headers, json=payload)
                 if res.status_code in (200, 201):
                     created_count += 1
-                    print(f"  [+] Created AppInfo {locale} (name: 'miu', privacyPolicyUrl: {privacy_url})")
+                    print(f"  [+] Created AppInfo {locale} (name: 'miu', subtitle: '{subtitle}', privacyPolicyUrl: {privacy_url})")
                 else:
-                    payload["data"]["attributes"]["name"] = app_name
+                    payload["data"]["attributes"]["name"] = fallback_name
                     res2 = requests.post(f"{BASE_URL}/appInfoLocalizations", headers=headers, json=payload)
                     if res2.status_code in (200, 201):
                         created_count += 1
-                        print(f"  [+] Created AppInfo {locale} (name: '{app_name}', privacyPolicyUrl: {privacy_url})")
+                        print(f"  [+] Created AppInfo {locale} (name: '{fallback_name}', subtitle: '{subtitle}', privacyPolicyUrl: {privacy_url})")
                     else:
                         print(f"  [!] Skipped AppInfo {locale} (HTTP {res2.status_code}: {res2.text[:200]})")
         print(f"AppInfo Summary (ID: {info_id}): {updated_count} updated/verified, {created_count} created.")
 
 
-def get_or_create_editable_versions(app_id, headers):
+def get_or_create_editable_versions(app_id, headers, target_platforms=None):
     """Return list of (platform, version_id, version_string, state, has_live_version) to update."""
     r = requests.get(f"{BASE_URL}/apps/{app_id}/appStoreVersions?limit=50", headers=headers)
     if r.status_code != 200:
@@ -1329,7 +1371,7 @@ def get_or_create_editable_versions(app_id, headers):
     }
 
     targets = []
-    for plat in ["IOS", "MAC_OS"]:
+    for plat in (target_platforms or ["IOS", "MAC_OS"]):
         plat_versions = by_platform.get(plat, [])
         if not plat_versions:
             print(f"\n[{plat}] No existing App Store versions found; attempting to create {TARGET_VERSION}...")
@@ -1371,7 +1413,40 @@ def get_or_create_editable_versions(app_id, headers):
             v_str = editable_v.get("attributes", {}).get("versionString", "")
             v_state = editable_v.get("attributes", {}).get("appStoreState", "")
             print(f"\n[{plat}] Found editable version {v_str} (ID: {v_id}, State: {v_state}, HasLive: {has_live})")
-            if v_str != TARGET_VERSION and v_state == "PREPARE_FOR_SUBMISSION":
+
+            if v_state in ("WAITING_FOR_REVIEW", "IN_REVIEW"):
+                print(f"[{plat}] Version {v_str} is currently {v_state}; canceling active reviewSubmission to allow metadata update and re-submission...")
+                r_subs = requests.get(
+                    f"{BASE_URL}/apps/{app_id}/reviewSubmissions?filter[platform]={plat}&limit=50",
+                    headers=headers,
+                )
+                if r_subs.status_code == 200:
+                    for sub in r_subs.json().get("data", []):
+                        sub_id = sub["id"]
+                        sub_state = sub.get("attributes", {}).get("state", "")
+                        if sub_state in ("WAITING_FOR_REVIEW", "IN_REVIEW", "READY_FOR_REVIEW"):
+                            cancel_payload = {
+                                "data": {
+                                    "type": "reviewSubmissions",
+                                    "id": sub_id,
+                                    "attributes": {"canceled": True},
+                                }
+                            }
+                            cr = requests.patch(f"{BASE_URL}/reviewSubmissions/{sub_id}", headers=headers, json=cancel_payload)
+                            print(f"[{plat}] Cancel reviewSubmission {sub_id} ({sub_state}): HTTP {cr.status_code}")
+                            if cr.status_code in (200, 204):
+                                time.sleep(4)
+                                v_state = "DEVELOPER_REJECTED"
+
+            if v_str != TARGET_VERSION:
+                # Detach any existing build from the previous versionString first so App Store Connect allows changing versionString
+                detach_r = requests.patch(
+                    f"{BASE_URL}/appStoreVersions/{v_id}/relationships/build",
+                    headers=headers,
+                    json={"data": None},
+                )
+                print(f"[{plat}] Detached previous build before versionString update: HTTP {detach_r.status_code}")
+
                 patch_payload = {
                     "data": {
                         "type": "appStoreVersions",
@@ -1385,6 +1460,8 @@ def get_or_create_editable_versions(app_id, headers):
                 if pr.status_code == 200:
                     print(f"[{plat}] Updated versionString from {v_str} -> {TARGET_VERSION}")
                     v_str = TARGET_VERSION
+                else:
+                    print(f"[{plat}] Could not update versionString from {v_str} -> {TARGET_VERSION}: HTTP {pr.status_code} {pr.text[:500]}")
             targets.append((plat, v_id, v_str, v_state, has_live))
         else:
             # Only live/non-editable versions exist; create a new version for TARGET_VERSION
@@ -1499,8 +1576,23 @@ def sync_version_localizations(plat, version_id, version_str, state, has_live, h
                         updated_count += 1
                         print(f"  [OK] Updated {locale} (whatsNew + promotionalText + supportUrl)")
                     else:
-                        failed_count += 1
-                        print(f"  [ERR] Failed to update {locale}: HTTP {res2.status_code} {res2.text}")
+                        payload_wn_promo = {
+                            "data": {
+                                "type": "appStoreVersionLocalizations",
+                                "id": loc_id,
+                                "attributes": {
+                                    "whatsNew": whats_new,
+                                    "promotionalText": promo,
+                                },
+                            }
+                        }
+                        res4 = requests.patch(f"{BASE_URL}/appStoreVersionLocalizations/{loc_id}", headers=headers, json=payload_wn_promo)
+                        if res4.status_code == 200:
+                            updated_count += 1
+                            print(f"  [OK] Updated {locale} (whatsNew + promotionalText)")
+                        else:
+                            failed_count += 1
+                            print(f"  [ERR] Failed to update {locale}: HTTP {res4.status_code} {res4.text[:240]}")
             else:
                 failed_count += 1
                 print(f"  [ERR] Failed to update {locale}: HTTP {res.status_code} {res.text}")
@@ -1568,13 +1660,250 @@ def sync_version_localizations(plat, version_id, version_str, state, has_live, h
     return updated_count + created_count, failed_count
 
 
+def attach_build_and_submit(app_id, targets):
+    print(f"\n=== Attaching Build & Submitting {TARGET_VERSION} for App Store Review ===")
+    for plat, v_id, v_str, state, _ in targets:
+        headers = get_headers()
+        print(f"\n[{plat}] Looking for VALID build for v{v_str} (version_id={v_id}, state={state})...")
+        chosen_build_id = None
+        chosen_build_ver = None
+        for attempt in range(20):
+            headers = get_headers()
+            r_b = requests.get(
+                f"{BASE_URL}/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={plat}&filter[preReleaseVersion.version]={v_str}&sort=-uploadedDate&limit=10",
+                headers=headers,
+            )
+            if r_b.status_code != 200:
+                print(f"[{plat}] Failed to query builds: HTTP {r_b.status_code} {r_b.text[:200]}")
+                break
+            builds = r_b.json().get("data", [])
+            if not builds:
+                print(f"[{plat}] Attempt {attempt+1}/20: No builds found yet for {v_str}; waiting 15s...")
+                time.sleep(15)
+                continue
+            b0 = builds[0]
+            b_id = b0["id"]
+            b_ver = b0.get("attributes", {}).get("version", "")
+            b_state = b0.get("attributes", {}).get("processingState", "")
+            print(f"[{plat}] Latest build: version={b_ver} (id={b_id}, processingState={b_state})")
+            if b_state == "VALID":
+                chosen_build_id = b_id
+                chosen_build_ver = b_ver
+                break
+            elif b_state == "PROCESSING":
+                print(f"[{plat}] Build {b_ver} is still PROCESSING; waiting 15s ({attempt+1}/20)...")
+                time.sleep(15)
+            else:
+                print(f"[{plat}] Build {b_ver} is in state {b_state}.")
+                break
+
+        if not chosen_build_id:
+            print(f"[{plat}] No VALID build available to attach for {v_str}.")
+            continue
+
+        # Ensure encryption declaration (usesNonExemptEncryption = False)
+        enc_payload = {
+            "data": {
+                "type": "builds",
+                "id": chosen_build_id,
+                "attributes": {"usesNonExemptEncryption": False},
+            }
+        }
+        requests.patch(f"{BASE_URL}/builds/{chosen_build_id}", headers=headers, json=enc_payload)
+
+        # Attach build to appStoreVersion
+        rel_payload = {
+            "data": {
+                "type": "builds",
+                "id": chosen_build_id,
+            }
+        }
+        r_rel = requests.patch(
+            f"{BASE_URL}/appStoreVersions/{v_id}/relationships/build",
+            headers=headers,
+            json=rel_payload,
+        )
+        if r_rel.status_code in (200, 204):
+            print(f"[{plat}] Attached build {chosen_build_ver} ({chosen_build_id}) to version {v_str} ({v_id})!")
+        else:
+            print(f"[{plat}] Could not attach build: HTTP {r_rel.status_code} {r_rel.text[:240]}")
+
+        # Submit for review via reviewSubmissions API
+        r_subs = requests.get(
+            f"{BASE_URL}/apps/{app_id}/reviewSubmissions?filter[platform]={plat}&limit=20",
+            headers=headers,
+        )
+        sub_id = None
+        if r_subs.status_code == 200:
+            for s in r_subs.json().get("data", []):
+                st = s.get("attributes", {}).get("state", "")
+                if st == "READY_FOR_REVIEW":
+                    sub_id = s["id"]
+                    break
+                elif st in ("WAITING_FOR_REVIEW", "IN_REVIEW"):
+                    print(f"[{plat}] Already in {st} (reviewSubmission {s['id']}).")
+                    sub_id = "ALREADY_SUBMITTED"
+                    break
+
+        if sub_id == "ALREADY_SUBMITTED":
+            continue
+
+        if not sub_id:
+            create_sub = {
+                "data": {
+                    "type": "reviewSubmissions",
+                    "attributes": {"platform": plat},
+                    "relationships": {
+                        "app": {"data": {"type": "apps", "id": app_id}}
+                    },
+                }
+            }
+            r_cs = requests.post(f"{BASE_URL}/reviewSubmissions", headers=headers, json=create_sub)
+            if r_cs.status_code in (200, 201):
+                sub_id = r_cs.json()["data"]["id"]
+                print(f"[{plat}] Created reviewSubmission {sub_id}")
+            else:
+                print(f"[{plat}] Could not create reviewSubmission: HTTP {r_cs.status_code} {r_cs.text[:240]}")
+                continue
+
+        # Add appStoreVersion item to reviewSubmission
+        item_payload = {
+            "data": {
+                "type": "reviewSubmissionItems",
+                "relationships": {
+                    "reviewSubmission": {"data": {"type": "reviewSubmissions", "id": sub_id}},
+                    "appStoreVersion": {"data": {"type": "appStoreVersions", "id": v_id}},
+                },
+            }
+        }
+        r_item = requests.post(f"{BASE_URL}/reviewSubmissionItems", headers=headers, json=item_payload)
+        if r_item.status_code in (200, 201, 409):
+            print(f"[{plat}] Added appStoreVersion {v_id} to reviewSubmission {sub_id} (HTTP {r_item.status_code})")
+        else:
+            print(f"[{plat}] Note on reviewSubmissionItem: HTTP {r_item.status_code} {r_item.text[:240]}")
+
+        # Submit reviewSubmission
+        submit_payload = {
+            "data": {
+                "type": "reviewSubmissions",
+                "id": sub_id,
+                "attributes": {"submitted": True},
+            }
+        }
+        r_sub_patch = requests.patch(f"{BASE_URL}/reviewSubmissions/{sub_id}", headers=headers, json=submit_payload)
+        if r_sub_patch.status_code == 200:
+            new_st = r_sub_patch.json().get("data", {}).get("attributes", {}).get("state", "")
+            print(f"[{plat}] Successfully submitted {v_str} (build {chosen_build_ver}) for App Review! State: {new_st}")
+        else:
+            print(f"[{plat}] Could not submit reviewSubmission {sub_id}: HTTP {r_sub_patch.status_code} {r_sub_patch.text[:300]}")
+
+
+def prepare_testflight_builds_only(app_id):
+    print(f"\n=== Preparing {TARGET_VERSION} Builds for TestFlight Only (No App Store Review Submission) ===")
+    for plat in ("IOS", "MAC_OS"):
+        print(f"\n[{plat}] Looking for uploaded build for v{TARGET_VERSION} on TestFlight...")
+        chosen_build_id = None
+        chosen_build_ver = None
+        for attempt in range(20):
+            headers = get_headers()
+            r_b = requests.get(
+                f"{BASE_URL}/builds?filter[app]={app_id}&filter[preReleaseVersion.platform]={plat}&filter[preReleaseVersion.version]={TARGET_VERSION}&sort=-uploadedDate&limit=10",
+                headers=headers,
+            )
+            if r_b.status_code != 200:
+                print(f"[{plat}] Failed to query builds: HTTP {r_b.status_code} {r_b.text[:200]}")
+                break
+            builds = r_b.json().get("data", [])
+            if not builds:
+                print(f"[{plat}] Attempt {attempt+1}/20: No builds found yet for {TARGET_VERSION}; waiting 15s...")
+                time.sleep(15)
+                continue
+            b0 = builds[0]
+            b_id = b0["id"]
+            b_ver = b0.get("attributes", {}).get("version", "")
+            b_state = b0.get("attributes", {}).get("processingState", "")
+            print(f"[{plat}] Latest build: version={b_ver} (id={b_id}, processingState={b_state})")
+            if b_state == "VALID":
+                chosen_build_id = b_id
+                chosen_build_ver = b_ver
+                break
+            elif b_state == "PROCESSING":
+                print(f"[{plat}] Build {b_ver} is still PROCESSING; waiting 15s ({attempt+1}/20)...")
+                time.sleep(15)
+            else:
+                print(f"[{plat}] Build {b_ver} is in state {b_state}.")
+                break
+
+        if not chosen_build_id:
+            print(f"[{plat}] Build for {TARGET_VERSION} is still processing on Apple servers; TestFlight will finish processing shortly.")
+            continue
+
+        headers = get_headers()
+        enc_payload = {
+            "data": {
+                "type": "builds",
+                "id": chosen_build_id,
+                "attributes": {"usesNonExemptEncryption": False},
+            }
+        }
+        r_enc = requests.patch(f"{BASE_URL}/builds/{chosen_build_id}", headers=headers, json=enc_payload)
+        print(f"[{plat}] Set usesNonExemptEncryption=False on TestFlight build {chosen_build_ver} ({chosen_build_id}): HTTP {r_enc.status_code}")
+
+        # Sync TestFlight betaBuildLocalizations (What to Test) across locales
+        r_bbloc = requests.get(f"{BASE_URL}/builds/{chosen_build_id}/betaBuildLocalizations?limit=200", headers=headers)
+        existing_bbloc = {}
+        if r_bbloc.status_code == 200:
+            for item in r_bbloc.json().get("data", []):
+                loc_code = item.get("attributes", {}).get("locale")
+                if loc_code:
+                    existing_bbloc[loc_code] = item["id"]
+        bb_ok = 0
+        for locale, (_desc, whats_new) in ASC_LOCALIZATIONS.items():
+            if locale in existing_bbloc:
+                bb_id = existing_bbloc[locale]
+                bb_payload = {
+                    "data": {
+                        "type": "betaBuildLocalizations",
+                        "id": bb_id,
+                        "attributes": {"whatsNew": whats_new},
+                    }
+                }
+                rb = requests.patch(f"{BASE_URL}/betaBuildLocalizations/{bb_id}", headers=headers, json=bb_payload)
+                if rb.status_code in (200, 204):
+                    bb_ok += 1
+            else:
+                bb_payload = {
+                    "data": {
+                        "type": "betaBuildLocalizations",
+                        "attributes": {"locale": locale, "whatsNew": whats_new},
+                        "relationships": {
+                            "build": {"data": {"type": "builds", "id": chosen_build_id}}
+                        },
+                    }
+                }
+                rb = requests.post(f"{BASE_URL}/betaBuildLocalizations", headers=headers, json=bb_payload)
+                if rb.status_code in (200, 201):
+                    bb_ok += 1
+        print(f"[{plat}] Synced {bb_ok} TestFlight betaBuildLocalizations on build {chosen_build_ver}")
+
+
 def main():
+    testflight_only = "--testflight-only" in sys.argv
+    ios_only = "--ios-only" in sys.argv
     print("=== App Store Connect Metadata Synchronizer for miu ===")
     headers = get_headers()
     app_id, app_name = get_app_id(headers)
 
-    sync_app_info_localizations(app_id, app_name, headers)
-    targets = get_or_create_editable_versions(app_id, headers)
+    if testflight_only:
+        prepare_testflight_builds_only(app_id)
+        print(f"\n=== Completed TestFlight build preparation for v{TARGET_VERSION} (No App Store submission, release notes untouched) ===")
+        return
+
+    if not ios_only:
+        sync_app_info_localizations(app_id, app_name, headers)
+    target_platforms = ["IOS"] if ios_only else ["IOS", "MAC_OS"]
+    print(f"Target platforms for version sync & submission: {target_platforms}")
+    targets = get_or_create_editable_versions(app_id, headers, target_platforms=target_platforms)
 
     total_ok = 0
     total_fail = 0
@@ -1584,6 +1913,8 @@ def main():
         ok, fail = sync_version_localizations(plat, v_id, v_str, state, has_live, headers)
         total_ok += ok
         total_fail += fail
+
+    attach_build_and_submit(app_id, targets)
 
     print(f"\n=== Completed: {total_ok} localizations synced across {len(targets)} platform(s) (Failures: {total_fail}) ===")
     if total_ok == 0 and total_fail > 0:

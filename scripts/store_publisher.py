@@ -7,6 +7,170 @@ import subprocess
 import requests
 
 DEFAULT_RELEASE_NOTES = {
+    "1.0.48": {
+        "ja-jp": """miu v1.0.48 リリースノート
+🔍 全角文字・多言語テキストの正規表現検索・置換の改善とスクロール表示の修正
+
+・全角文字・多言語文字の正規表現検索・置換を改善:
+  日本語・韓国語・中国語・絵文字などの全角文字を正規表現「.」や文字範囲（[あ-ん] など）で検索・置換した際、1文字が複数文字分に変換されてしまう問題を修正し、正確に1文字単位で置換できるようになりました。
+・スクロール時のカーソル表示を改善:
+  下スクロールなどでカーソル位置が画面外に見切れた際、表示されている一番上の行先頭にカーソルが表示される問題を修正しました。
+・高速な編集・一括置換・リアルタイムプレビュー:
+  大容量ファイルの編集や一括置換、Markdown / LaTeX数式 / Mermaid図表プレビューが軽快に動作します。""",
+
+        "en-us": """miu v1.0.48 Release Notes
+🔍 Accurate Multi-Language Regex Search & Replace and Scroll Cursor Fix
+
+- Accurate Regular Expression Matching for Full-Width & Multi-Language Characters:
+  Fixed an issue where using "." or character ranges/quantifiers in regular expression search and replace matched individual UTF-8 bytes instead of whole characters, ensuring Japanese, Korean, Chinese, accented characters, and emoji are matched and replaced accurately one character at a time.
+- Improved Cursor Visibility When Scrolling:
+  Fixed an issue where scrolling the active cursor line out of view could display a cursor at the start of the top visible line.
+- Fast Editing, Bulk Replace & Live Preview:
+  Continued high-speed typing, instant "Replace All", and smooth Markdown, LaTeX math, and Mermaid diagram Live Preview.""",
+
+        "zh-hans": """miu v1.0.48 更新日志
+🔍 修复全角与多语言字符的正则表达式查找替换问题及滚动光标显示
+
+- 完善中文、日文、韩文及全角字符的正则表达式查找与替换：
+  修复了使用正则表达式“.”、字符范围（如 [一-龥]）或量词替换全角字符时，1 个字符被重复替换多次的问题，现在所有多语言字符与表情符号均按单个字符精准匹配和替换。
+- 优化滚动时的光标显示：
+  修复了当光标所在行滚出屏幕可视区域时，可视区域第一行行首仍会显示光标的问题。
+- 高速编辑、全部替换与实时预览：
+  大文件编辑、大批量“全部替换”以及 Markdown / LaTeX 数学公式 / Mermaid 图表实时预览保持流畅高速。""",
+
+        "ko": """miu v1.0.48 릴리스 노트
+🔍 한글·전각 문자 정규식 찾기/바꾸기 정확도 개선 및 스크롤 커서 표시 수정
+
+- 한글·전각 문자 및 다국어 정규식 찾기/바꾸기 개선:
+  정규식 '.' 또는 문자 범위([가-힣] 등)로 전각 문자를 변환할 때 1글자가 여러 글자 분량으로 중복 변환되던 문제를 수정하여, 한글·일본어·중국어·이모지 등이 정확히 1글자 단위로 매칭 및 치환되도록 개선했습니다.
+- 스크롤 시 화면 밖 커서 표시 수정:
+  스크롤하여 실제 커서 위치가 화면 밖으로 벗어났을 때 화면 맨 위 줄의 맨 앞에 커서가 표시되던 현상을 수정했습니다.
+- 빠른 편집·모두 바꾸기·실시간 미리보기:
+  대용량 파일 편집, 초고속 '모두 바꾸기' 및 Markdown / LaTeX 수식 / Mermaid 다이어그램 실시간 미리보기를 쾌적하게 이용할 수 있습니다."""
+    },
+    "1.0.47": {
+        "ja-jp": """miu v1.0.47 リリースノート
+⚡ 編集・スクロール・検索置換・リアルタイムプレビューの全面的な高速化
+
+・文字入力・スクロール・大容量ファイル編集の高速化:
+  大きなファイルや長時間の編集作業でも、文字入力・カーソル移動・スクロールがこれまで以上に軽快でなめらかに動作するよう高速化しました。
+・検索・一括置換（すべて置換）の劇的な高速化:
+  ファイル内のキーワード検索や正規表現検索、および数千〜数万箇所におよぶ「すべて置換」の処理速度を大幅に向上させ、大きな文書でも瞬時に完了するようになりました。
+・Markdown / LaTeX数式 / Mermaid図表 プレビューの高速化:
+  リアルタイムプレビューの変換・描画処理を高速化し、長文ドキュメントや図表・数式も待たされることなく快適に確認できるよう改善しました。""",
+
+        "en-us": """miu v1.0.47 Release Notes
+⚡ Major Speed & Responsiveness Improvements Across Editing, Search & Live Preview
+
+- Faster Typing, Scrolling & Large File Editing:
+  Significantly accelerated text editing, cursor movement, and scrolling so even large files and long editing sessions feel effortlessly smooth and responsive.
+- Ultra-Fast Search & Replace All:
+  Dramatically boosted keyword search, regular expression matching, and bulk "Replace All" operations—replacing thousands of matches across large documents now completes instantaneously.
+- Faster Markdown, LaTeX Math & Mermaid Live Preview:
+  Optimized the Live Preview rendering pipeline so long Markdown documents, complex LaTeX equations, and Mermaid diagrams update faster than ever while you type.""",
+
+        "zh-hans": """miu v1.0.47 更新日志
+⚡ 全面提升文字编辑、查找替换与实时预览的运行速度
+
+- 大幅提升输入、滚动与大文件编辑速度：
+  深度优化了文本处理速度，即使是超大文件或长时间连续编辑，打字输入、光标移动与页面滚动都更加轻快流畅。
+- 查找与“全部替换”速度大幅飞跃：
+  显著加速了关键词查找、正则表达式匹配以及大批量“全部替换”的处理速度，成千上万处替换也能瞬间完成。
+- Markdown / LaTeX 数学公式 / Mermaid 图表实时预览提速：
+  优化了实时预览的转换与渲染速度，在编写长篇文档或复杂图表公式时预览响应更加迅速。""",
+
+        "ko": """miu v1.0.47 릴리스 노트
+⚡ 텍스트 편집·스크롤·검색 및 바꾸기·실시간 미리보기 속도 대폭 향상
+
+- 문자 입력·스크롤 및 대용량 파일 편집 고속화:
+  대용량 파일이나 장시간 편집 작업에서도 타이핑, 커서 이동, 스크롤이 그 어느 때보다 가볍고 부드럽게 반응하도록 속도를 높였습니다.
+- 검색 및 '모두 바꾸기' 속도 비약적 향상:
+  키워드 검색, 정규식 검색 및 수천~수만 건에 달하는 '모두 바꾸기' 처리 속도를 대폭 단축하여 큰 문서에서도 즉시 완료됩니다.
+- Markdown / LaTeX 수식 / Mermaid 다이어그램 실시간 미리보기 고속화:
+  실시간 미리보기 변환 및 렌더링 속도를 개선하여 긴 문서나 복잡한 수식·다이어그램도 지연 없이 쾌적하게 확인할 수 있습니다."""
+    },
+    "1.0.46": {
+        "ja-jp": """miu v1.0.46 リリースノート
+🇯🇵 検索・置換ダイアログの日本語 IME 入力位置修正 ＆ 文字コード・改行コード（CR / CRLF / LF）完全対応
+
+・検索・置換ダイアログ（Ctrl+F / Ctrl+H）での日本語 IME 入力位置ズレを修正:
+  検索・置換ダイアログのテキスト入力枠で IME を ON にして日本語を入力した際、変換前の文字が入力枠の先頭ではなく右にずれて表示される不具合を修正しました。
+・文字コード自動判別・変換保存の全面強化:
+  BOM なし UTF-16LE / UTF-16BE の自動判別、UTF-16 サロゲートペア（4バイト文字・絵文字）対応、64KB 超の大容量ファイルでの文字コード判別精度向上、および不正バイト列を含むファイルの安全保護を実装しました。
+・CR / CRLF / LF 全改行コードの完全対応:
+  CR 単体や混在改行を含むファイルでも、全49言語のシンタックスハイライト、箱型（矩形）選択、貼り付け時の改行自動統一、正規表現（^ / $）検索・置換、ライブプレビューがすべて正確に動作するよう改善しました。""",
+
+        "en-us": """miu v1.0.46 Release Notes
+🇯🇵 Fixed Find/Replace Dialog IME Input Position & Full Encoding / Line-Ending (CR / CRLF / LF) Support
+
+- Fixed IME Composition Position in Find & Replace Dialogs (Ctrl+F / Ctrl+H):
+  Resolved an issue where typing with an active IME (such as Japanese input) inside the Find or Replace text box displayed uncommitted composition text shifted to the right instead of at the start of the input field.
+- Comprehensive Character Encoding Detection & Conversion Improvements:
+  Added automatic detection for BOM-less UTF-16LE/BE files, full UTF-16 surrogate pair (4-byte character & emoji) support across codepage conversions, dynamic non-ASCII sampling for files over 64 KB, and safe fallback protection for malformed byte sequences.
+- Full CR / CRLF / LF Line-Ending Support Across All Features:
+  Improved syntax highlighting across all 49 languages, rectangular selection, clipboard paste newline normalization, multiline regex (^ / $) search/replace, and Live Preview for classic Mac (CR) and mixed line endings.""",
+
+        "zh-hans": """miu v1.0.46 更新日志
+🇯🇵 修复查找/替换对话框输入法（IME）候选字位置偏移 & 全面强化字符编码与换行符（CR / CRLF / LF）支持
+
+- 修复查找与替换对话框（Ctrl+F / Ctrl+H）中输入法组字位置右偏的问题：
+  修复了在查找或替换输入框中开启输入法输入中文/日文时，未确认的组字文本未显示在输入框开头而是向右偏移的问题。
+- 全面强化字符编码自动识别与转换保存：
+  新增无 BOM UTF-16LE / UTF-16BE 自动识别、UTF-16 代理对（4 字节字符与表情符号）完整转换支持、超过 64KB 大文件的动态多字节采样识别，以及针对损坏字节序列的安全保护机制。
+- 全面完善 CR / CRLF / LF 换行符支持：
+  无论是经典 Mac 换行（CR）还是混合换行文件，全部 49 种语言语法高亮、矩形（列）选择、粘贴换行符自动统一、多行正则表达式（^ / $）查找替换以及实时预览均能精准工作。""",
+
+        "ko": """miu v1.0.46 릴리스 노트
+🇯🇵 찾기/바꾸기 대화 상자 IME 입력 위치 오류 수정 & 문자 인코딩·줄바꿈(CR / CRLF / LF) 완벽 지원
+
+- 찾기 및 바꾸기 대화 상자(Ctrl+F / Ctrl+H)에서 IME 조합 문자 위치가 오른쪽으로 밀리던 문제 수정:
+  찾기/바꾸기 텍스트 입력창에서 IME를 켜고 입력할 때 조합 중인 문자가 입력창 맨 앞이 아닌 오른쪽으로 치우쳐 표시되던 문제를 해결했습니다.
+- 문자 인코딩 자동 감지 및 변환 저장 전면 강화:
+  BOM 없는 UTF-16LE / UTF-16BE 자동 감지, UTF-16 서로게이트 페어(4바이트 문자·이모지) 완벽 지원, 64KB 초과 대용량 파일의 인코딩 감지 정확도 향상 및 손상된 바이트 시퀀스 안전 보호를 구현했습니다.
+- CR / CRLF / LF 모든 줄바꿈 형식 완벽 지원:
+  고전 Mac 형식(CR) 및 혼합 줄바꿈 파일에서도 49개 언어 구문 강조, 열(박스) 선택, 붙여넣기 줄바꿈 자동 정규화, 정규식(^ / $) 검색·치환 및 실시간 미리보기가 정확하게 작동합니다."""
+    },
+    "1.0.45": {
+        "ja-jp": """miu v1.0.45 リリースノート
+🛡️ ライブプレビュー（Mermaid図表・KaTeX数式・Markdown）のクラッシュ修正と安定性強化
+
+・Mermaid 図表・数式プレビュー編集中に強制終了する不具合を修正:
+  ガントチャート（gantt）等で日付や構文の入力途中（例：205-01-01 等の3桁年号や未完了構文）に内部例外が発生した際、noexcept 境界によりアプリが強制終了していた問題を修正しました。
+・Mermaid ガントチャートの日付パーサ改善:
+  標準の4桁年号だけでなく3桁年号（YYY-MM-DD）のフォールバック解釈にも対応し、リアルタイム入力中でも途切れず描画されるようになりました。
+・プレビュー変換エンジンの例外安全性強化:
+  全26種の Mermaid 図表レンダラ・KaTeX 数式変換・SVG 最適化・プレビュー HTML 生成の各境界に安全ガードを追加し、作成途中の不完全な記法でもクラッシュせず安定して動作します。""",
+
+        "en-us": """miu v1.0.45 Release Notes
+🛡️ Fixed Live Preview Crashes (Mermaid Diagrams, KaTeX Math & Markdown) & Improved Stability
+
+- Fixed Crash While Editing Mermaid Diagrams in Live Preview:
+  Resolved an issue where typing incomplete dates or syntax in Mermaid Gantt charts (e.g., 3-digit years like 205-01-01) threw an internal exception across a noexcept boundary and terminated the app.
+- Enhanced Mermaid Gantt Date Parser:
+  Added fallback support for 3-digit years (YYY-MM-DD) in addition to 4-digit years so Gantt charts render smoothly while typing.
+- Hardened Live Preview Exception Safety:
+  Removed unsafe noexcept specifiers and added multi-layer exception guards across all 26 Mermaid diagram renderers, KaTeX math rendering, SVG tightening, and HTML preview generation.""",
+
+        "zh-hans": """miu v1.0.45 更新日志
+🛡️ 修复实时预览（Mermaid 图表、KaTeX 公式与 Markdown）崩溃问题并增强稳定性
+
+- 修复编辑 Mermaid 图表时实时预览闪退的问题：
+  修复了在甘特图（gantt）等图表中输入未完成日期或语法（如 205-01-01 等三位数年份）时触发内部异常穿过 noexcept 边界导致程序退出的问题。
+- 改进 Mermaid 甘特图日期解析器：
+  除标准四位数年份外新增对三位数年份（YYY-MM-DD）的兼容解析，输入过程中即可平滑渲染。
+- 全面加固实时预览异常安全性：
+  为全部 26 种 Mermaid 图表渲染器、KaTeX 数学公式转换、SVG 优化与预览 HTML 生成增加多层异常防护，在输入未闭合语法时依然稳定运行。""",
+
+        "ko": """miu v1.0.45 릴리스 노트
+🛡️ 실시간 미리보기(Mermaid 다이어그램·KaTeX 수식·Markdown) 충돌 수정 및 안정성 강화
+
+- Mermaid 다이어그램 실시간 미리보기 편집 중 강제 종료 오류 수정:
+  간트 차트(gantt) 등에서 날짜나 구문 입력 도중(예: 205-01-01 등 3자리 연도 또는 미완성 구문) 내부 예외 발생 시 noexcept 경계로 인해 앱이 종료되던 문제를 해결했습니다.
+- Mermaid 간트 차트 날짜 파서 개선:
+  표준 4자리 연도뿐만 아니라 3자리 연도(YYY-MM-DD) 폴백 파싱을 지원하여 입력 중에도 끊김 없이 렌더링됩니다.
+- 미리보기 엔진 예외 안전성 강화:
+  26종 Mermaid 다이어그램 렌더러, KaTeX 수식 변환, SVG 최적화 및 미리보기 HTML 생성 전반에 다중 예외 보호 가드를 적용했습니다."""
+    },
     "1.0.44": {
         "ja-jp": """miu v1.0.44 リリースノート
 🎨 25言語のシンタックスハイライト新規追加（全49カテゴリ・120種以上の拡張子対応）＆ 全角文字の行番号位置ズレ修正・水平スクロールバー＆編集精度向上

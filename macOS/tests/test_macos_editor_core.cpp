@@ -21,7 +21,16 @@ static void verifyLineStartsInvariant(Editor& ed) {
     std::vector<size_t> expected;
     expected.push_back(0);
     for (size_t i = 0; i < full.size(); ++i) {
-        if (full[i] == '\n') expected.push_back(i + 1);
+        if (full[i] == '\r') {
+            if (i + 1 < full.size() && full[i + 1] == '\n') {
+                expected.push_back(i + 2);
+                ++i;
+            } else {
+                expected.push_back(i + 1);
+            }
+        } else if (full[i] == '\n') {
+            expected.push_back(i + 1);
+        }
     }
     CHECK(ed.lineStarts == expected, "lineStarts invariant matches exact newline positions");
 }
@@ -367,6 +376,36 @@ static void testPhase3PreviewPeleAndLatex() {
     CHECK(ed.pt.getRange(0, ed.pt.length()).find("- [x] Task one") != std::string::npos, "Line 1 updated from [ ] to [x] in Editor buffer");
     ed.performUndo();
     CHECK(ed.pt.getRange(0, ed.pt.length()).find("- [ ] Task one") != std::string::npos, "Undo restored checkbox from [x] to [ ]");
+
+    // Regression test for Gantt 3-digit year (205-01-01) and malformed/in-progress diagram inputs
+    std::string gantt205 =
+        "gantt\n"
+        "    title A Gantt Diagram\n"
+        "    %% This is a comment\n"
+        "    dateFormat YYYY-MM-DD\n"
+        "    section Section\n"
+        "        A task          :a1, 205-01-01, 30d\n"
+        "        Another task    :after a1, 20d\n"
+        "    section Another\n"
+        "        Task in Another :2014-01-12, 12d\n"
+        "        another task    :24d\n";
+    auto ganttRes = MiuPreview::renderPreview(gantt205, "mmd", true);
+    CHECK(ganttRes.bodyHtml.find("<svg") != std::string::npos, "Gantt with 205-01-01 renders SVG without crashing");
+
+    // Malformed / mid-typing Gantt and C4 diagrams must return cleanly without std::terminate
+    std::string ganttBad =
+        "gantt\n"
+        "    dateFormat YYYY-MM-DD\n"
+        "    section S\n"
+        "        Task :a1, 205-, 30d\n";
+    auto ganttBadRes = MiuPreview::renderPreview(ganttBad, "mmd", true);
+    CHECK(ganttBadRes.bodyHtml.find("data-empty=\"1\"") != std::string::npos, "Malformed Gantt returns empty placeholder without crashing");
+
+    std::string c4Bad =
+        "C4Context\n"
+        "    Rel(unknownA, unknownB, \"Uses\")\n";
+    auto c4BadRes = MiuPreview::renderPreview(c4Bad, "mmd", true);
+    CHECK(c4BadRes.bodyHtml.find("data-empty=\"1\"") != std::string::npos, "C4 with unknown rel returns empty placeholder without crashing");
 }
 
 static void testPhase4ViewStateRecentFilesAndEncodings() {
@@ -597,6 +636,7 @@ static void testParityEdgeCases() {
     ed.newFile();
     ed.wordWrapEnabled = false;
     ed.imeComp = "にほんご変換テスト";
+#if defined(__APPLE__)
     {
         int bmpW = 300, bmpH = 80;
         std::vector<uint8_t> pixels(bmpW * bmpH * 4, 0);
@@ -623,22 +663,28 @@ static void testParityEdgeCases() {
         }
         CHECK(drawnPixels > 20, "Uncommitted Japanese IME composition text (imeComp) is rendered on an empty line");
     }
+#endif
     ed.imeComp = "";
 
     // 7. Live Preview toggle & theme background CSS verification (macOS gray window regression guard)
     {
         ed.newFile();
+        ed.showHelpPopup = true;
         ed.isDarkMode = false;
         int previewCbCount = 0;
         ed.cbUpdatePreview = [&]() { previewCbCount++; };
         ed.togglePreview();
-        CHECK(ed.showPreview == true && previewCbCount == 1, "togglePreview enables showPreview and fires cbUpdatePreview");
+        CHECK(ed.showPreview == true && !ed.showHelpPopup && previewCbCount == 1, "togglePreview enables showPreview, hides showHelpPopup, and fires cbUpdatePreview");
         MiuPreview::PreviewRenderResult emptyLightRes = ed.getPreviewRenderResult();
         CHECK(emptyLightRes.isMdOrMermaidShell == true, "Empty untitled document uses Markdown/Mermaid shell in preview");
         CHECK(emptyLightRes.fullHtml.find("html{background:var(--pele-bg);color:var(--md-fg);min-height:100%}") != std::string::npos,
               "Preview shell sets explicit background on root html element so empty documents are not transparent");
         CHECK(emptyLightRes.fullHtml.find("<html data-theme=\"light\">") != std::string::npos,
               "Light mode preview sets data-theme=light on html element");
+        CHECK(emptyLightRes.fullHtml.find("--sb-thumb:rgba(0,0,0,0.38)") != std::string::npos &&
+              emptyLightRes.fullHtml.find(".__ag_sb_v") != std::string::npos &&
+              emptyLightRes.fullHtml.find("window.__miuSbUpd=upd") != std::string::npos,
+              "Light mode preview includes unified scrollbar CSS and JS controller");
 
         ed.isDarkMode = true;
         ed.updateThemeColors();
@@ -646,8 +692,519 @@ static void testParityEdgeCases() {
         MiuPreview::PreviewRenderResult emptyDarkRes = ed.getPreviewRenderResult();
         CHECK(emptyDarkRes.fullHtml.find("<html data-theme=\"dark\">") != std::string::npos,
               "Dark mode preview sets data-theme=dark on html element");
+        CHECK(emptyDarkRes.fullHtml.find("--pele-bg:#000000;") != std::string::npos,
+              "Dark mode preview sets --pele-bg to pure black (#000000)");
+        CHECK(emptyDarkRes.fullHtml.find("--sb-thumb:rgba(255,255,255,0.42)") != std::string::npos,
+              "Dark mode preview sets --sb-thumb to match MiuScroller dark mode knob");
         ed.togglePreview();
         CHECK(ed.showPreview == false && previewCbCount == 3, "togglePreview disables showPreview and fires cbUpdatePreview");
+    }
+
+    // 8. iOS Save As filename extension preservation & Dropbox overwrite GUID resolution
+    {
+        CHECK(MiuIsLikelyTemporaryGuidFileName("E621E1F8-C36C-495A-93FC-0C247A3E6E5F") == true,
+              "Detects standard 8-4-4-4-12 UUID without extension as temporary GUID");
+        CHECK(MiuIsLikelyTemporaryGuidFileName("/private/var/mobile/File Provider Storage/e621e1f8-c36c-495a-93fc-0c247a3e6e5f.txt") == true,
+              "Detects UUID with extension in File Provider Storage path as temporary GUID");
+        CHECK(MiuIsLikelyTemporaryGuidFileName("0123456789abcdef0123456789abcdef.md") == true,
+              "Detects 32-hex string filename as temporary GUID");
+        CHECK(MiuIsLikelyTemporaryGuidFileName(".dat.nosync1234.5678") == true,
+              "Detects .dat.nosync staging file as temporary GUID");
+        CHECK(MiuIsLikelyTemporaryGuidFileName("notes.txt.sb-1234abcd-5678ef") == true,
+              "Detects .sb- atomic save staging file as temporary GUID");
+        CHECK(MiuExtractRealFileNameFromStagingName("notes.txt.sb-1234abcd-5678ef") == "notes.txt",
+              "Extracts real filename from .sb- atomic save staging name");
+        CHECK(MiuIsLikelyTemporaryGuidFileName("notes.txt") == false &&
+              MiuIsLikelyTemporaryGuidFileName("README.md") == false &&
+              MiuIsLikelyTemporaryGuidFileName("2026-10-31-report.txt") == false,
+              "Normal filenames are not misidentified as GUIDs");
+
+        CHECK(MiuBuildExportFileName("/var/mobile/Documents/memo.txt", "", "無題") == "memo",
+              "MiuBuildExportFileName strips extension for temp export URL so iOS does not force-append .txt");
+        CHECK(MiuBuildExportFileName("/var/mobile/Documents/index.html", "", "無題") == "index",
+              "MiuBuildExportFileName strips .html for temp export URL so custom extensions are not doubled");
+        CHECK(MiuBuildExportFileName("", "", "無題") == "無題",
+              "MiuBuildExportFileName returns extensionless Untitled so saving index.html does not become index.html.txt");
+        CHECK(MiuBuildExportFileName("", "", "Untitled") == "Untitled",
+              "MiuBuildExportFileName returns extensionless English Untitled");
+        CHECK(MiuBuildExportFileName("/File Provider Storage/E621E1F8-C36C-495A-93FC-0C247A3E6E5F", "overwrite_target.txt", "無題") == "overwrite_target",
+              "MiuBuildExportFileName uses currentDocumentDisplayName stem when currentFilePath is a Dropbox GUID");
+
+        std::vector<std::string> guidOnlyCandidates = {
+            "E621E1F8-C36C-495A-93FC-0C247A3E6E5F",
+            "/private/var/mobile/Containers/Shared/AppGroup/1234/File Provider Storage/E621E1F8-C36C-495A-93FC-0C247A3E6E5F"
+        };
+        CHECK(MiuResolveDisplayFileName(guidOnlyCandidates, "memo.txt", "無題") == "memo.txt",
+              "MiuResolveDisplayFileName falls back to real filename with extension when Dropbox returns GUID path on overwrite");
+
+        std::vector<std::string> localizedWithoutExtCandidates = {
+            "memo",
+            "E621E1F8-C36C-495A-93FC-0C247A3E6E5F.txt"
+        };
+        CHECK(MiuResolveDisplayFileName(localizedWithoutExtCandidates, "", "無題") == "memo.txt",
+              "MiuResolveDisplayFileName restores extension onto extensionless localized name");
+    }
+
+    // 9. Regression guard for iOS Open Recent crash: failed openFileFromPath must preserve previous MappedFile/PieceTable
+    {
+        std::string tetrisPath = tempDir + "/Tetris.html";
+        std::string tetrisContent(15184, 'A');
+        tetrisContent.replace(0, 15, "<!DOCTYPE html>");
+        {
+            std::ofstream ofs(tetrisPath, std::ios::binary);
+            ofs.write(tetrisContent.data(), tetrisContent.size());
+        }
+        CHECK(ed.openFileFromPath(tetrisPath), "Opened 15KB Tetris.html successfully");
+        ed.cursors = { { 300, 300, 0.0f, 0.0f, false, false } };
+        CHECK(!ed.openFileFromPath(tempDir + "/nonexistent_deleted_recent_file.txt"),
+              "openFileFromPath returns false for missing recent file");
+        CHECK(ed.pt.length() == tetrisContent.size(),
+              "Failed openFileFromPath preserves previous document length");
+        CHECK(ed.getPositionByUTF16Offset(300, -1) == 299 && ed.pt.charAt(0) == '<',
+              "getPositionByUTF16Offset and PieceTable::charAt remain valid after failed openFileFromPath (no dangling mmap pointer)");
+        std::filesystem::remove(tetrisPath);
+        CHECK(ed.pt.getRange(0, 15) == "<!DOCTYPE html>",
+              "Unlinking opened file on disk does not invalidate heap-backed MappedFile buffer");
+    }
+
+    // 10. Off-screen caret visibility regression guard (scroll down past Line 1 & wrapped sub-line scrolled above viewport)
+    {
+        ed.newFile();
+        std::string doc;
+        for (int i = 0; i < 30; ++i) {
+            doc += "          Line " + std::to_string(i + 1) + "\n";
+        }
+        ed.pt.initFromFile(doc.data(), doc.size());
+        ed.rebuildLineStarts();
+        ed.cursors = { { 0, 0, 0.0f, 0.0f, false, false } };
+        ed.vScrollPos = 5;
+        ed.vScrollSubLine = 0;
+        CHECK(ed.getLineIdx(ed.cursors[0].head) == 0 && ed.vScrollPos == 5,
+              "macOS/iOS off-screen cursor on Line 1 is below start=vScrollPos(5) and remains at offset 0");
+    }
+}
+
+static void testPhase6EncodingsNewlinesRectCursorSearch() {
+    std::cout << "--- Running Phase 6: Comprehensive Encodings, CR/CRLF/LF Line Endings, Syntax, Rect Select, Cursor, Search/Replace ---" << std::endl;
+    std::string tempDir = (std::filesystem::temp_directory_path() / "miu_macos_test_phase6").string();
+    std::filesystem::create_directories(tempDir);
+
+    Editor ed;
+    ed.customAppSupportDir = tempDir;
+    ed.initGraphics();
+    float viewW = 600.0f, viewH = 400.0f;
+    ed.cbGetViewSize = [&](float& w, float& h) { w = viewW; h = viewH; };
+
+    std::string clipBuf;
+    bool clipRect = false;
+    ed.cbSetClipboard = [&](const std::string& s, bool isR) { clipBuf = s; clipRect = isR; };
+    ed.cbGetClipboard = [&](bool& isR) -> std::string { isR = clipRect; return clipBuf; };
+
+    // 1. Test encodings: Shift_JIS, EUC-JP, ISO-2022-JP (JIS), BOM-less UTF-16LE/BE, >64KB Shift_JIS, partially corrupted Shift_JIS, 4-byte UTF-8 surrogate pair
+    {
+        // ISO-2022-JP ("東京" = ESC $ B 45 6C 35 7E ESC ( B)
+        const unsigned char jisBytes[] = { 0x1B, '$', 'B', 0x45, 0x6C, 0x35, 0x7E, 0x1B, '(', 'B', '\r', 'A', 'B', 'C' };
+        std::string jisPath = tempDir + "/jis_cr.txt";
+        { std::ofstream ofs(jisPath, std::ios::binary); ofs.write((const char*)jisBytes, sizeof(jisBytes)); }
+        CHECK(ed.openFileFromPath(jisPath), "Opened ISO-2022-JP + CR file");
+        CHECK(ed.currentEncoding == ENC_LOCAL, "ISO-2022-JP detected as ENC_LOCAL (not misidentified as UTF-8)");
+        CHECK(ed.newlineStr == "\r", "Detected CR newline style in ISO-2022-JP file");
+        CHECK(ed.lineStarts.size() == 2 && ed.pt.getRange(0, ed.pt.length()) == "東京\rABC", "Decoded ISO-2022-JP and split CR lines");
+        verifyLineStartsInvariant(ed);
+
+        // EUC-JP ("東京タワー\n大阪")
+        const unsigned char eucBytes[] = { 0xC5, 0xEC, 0xB5, 0xFE, 0xA5, 0xBF, 0xA5, 0xEF, 0xA1, 0xBC, '\n', 0xC2, 0xE7, 0xBA, 0xE5 };
+        std::string eucPath = tempDir + "/euc.txt";
+        { std::ofstream ofs(eucPath, std::ios::binary); ofs.write((const char*)eucBytes, sizeof(eucBytes)); }
+        CHECK(ed.openFileFromPath(eucPath), "Opened EUC-JP file");
+        CHECK(ed.currentEncoding == ENC_LOCAL && ed.pt.getRange(0, ed.pt.length()) == "東京タワー\n大阪", "Decoded EUC-JP file accurately");
+
+        // >64KB ASCII followed by Shift_JIS ("東京タワー")
+        std::string largeSjis(70000, 'a');
+        largeSjis[100] = '\r';
+        const unsigned char sjisTail[] = { 0x93, 0x8C, 0x8B, 0x9E, 0x83, 0x5E, 0x83, 0x8F, 0x81, 0x5B };
+        largeSjis.append((const char*)sjisTail, sizeof(sjisTail));
+        std::string largeSjisPath = tempDir + "/large_sjis.txt";
+        { std::ofstream ofs(largeSjisPath, std::ios::binary); ofs.write(largeSjis.data(), largeSjis.size()); }
+        CHECK(ed.openFileFromPath(largeSjisPath), "Opened >64KB ASCII + Shift_JIS file");
+        CHECK(ed.currentEncoding == ENC_LOCAL, "Detected ENC_LOCAL even when non-ASCII bytes start past 64KB");
+        CHECK(ed.pt.getRange(ed.pt.length() - 15, 15) == "東京タワー", "Decoded Shift_JIS tail past 64KB");
+
+        // Partially corrupted Shift_JIS (valid line + invalid byte 0xFF + valid line)
+        std::string corruptSjis((const char*)sjisTail, sizeof(sjisTail));
+        corruptSjis += "\r\n\xFF\r\n";
+        corruptSjis.append((const char*)sjisTail, sizeof(sjisTail));
+        std::string corruptPath = tempDir + "/corrupt_sjis.txt";
+        { std::ofstream ofs(corruptPath, std::ios::binary); ofs.write(corruptSjis.data(), corruptSjis.size()); }
+        CHECK(ed.openFileFromPath(corruptPath), "Opened partially corrupted Shift_JIS file without empty fallback");
+        CHECK(ed.pt.getRange(0, ed.pt.length()).find("東京タワー") == 0, "Resilient line-by-line decoding preserved valid Shift_JIS lines");
+
+        // BOM-less UTF-16LE ("Hello\rWorld")
+        const unsigned char u16leNoBom[] = { 'H',0, 'e',0, 'l',0, 'l',0, 'o',0, '\r',0, 'W',0, 'o',0, 'r',0, 'l',0, 'd',0 };
+        std::string u16leNoBomPath = tempDir + "/u16le_nobom.txt";
+        { std::ofstream ofs(u16leNoBomPath, std::ios::binary); ofs.write((const char*)u16leNoBom, sizeof(u16leNoBom)); }
+        CHECK(ed.openFileFromPath(u16leNoBomPath), "Opened BOM-less UTF-16LE file");
+        CHECK(ed.currentEncoding == ENC_UTF16LE && ed.pt.getRange(0, ed.pt.length()) == "Hello\rWorld" && ed.lineStarts.size() == 2,
+              "BOM-less UTF-16LE detected and CR split into 2 lines");
+
+        // Surrogate pairs ("𠮟𠮷😀") in UTF-8 & UTF-16LE round-trip
+        std::string surrDoc = "𠮟𠮷😀\rLine2";
+        ed.pt.initFromFile(surrDoc.data(), surrDoc.size());
+        ed.newlineStr = "\r";
+        ed.currentEncoding = ENC_UTF16LE;
+        ed.rebuildLineStarts();
+        std::string surrPath = tempDir + "/surrogate_u16.txt";
+        CHECK(ed.saveFile(UTF8ToW(surrPath)) && ed.openFileFromPath(surrPath), "Saved and reopened UTF-16LE with surrogate pairs");
+        CHECK(ed.pt.getRange(0, ed.pt.length()) == surrDoc && ed.newlineStr == "\r", "Preserved surrogate pairs (𠮟𠮷😀) and CR newline");
+    }
+
+    // 2. Test all 3 line endings (LF, CRLF, CR) + cross-piece CRLF for cursor movement, syntax highlighting, rectangular selection, and search/replace
+    for (const std::string& nl : { std::string("\n"), std::string("\r\n"), std::string("\r") }) {
+        ed.newFile();
+        ed.newlineStr = nl;
+        std::string doc = "int alpha = 1; // comment 1" + nl + "int beta = 2; // comment 2" + nl + "int gamma = 3;";
+        ed.pt.initFromFile(doc.data(), doc.size());
+        ed.rebuildLineStarts();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.lineStarts.size() == 3, "3 lines built for newline style");
+
+        // Cross-piece CRLF check
+        if (nl == "\r\n") {
+            ed.newFile();
+            ed.insertAtCursors("line1\r");
+            // Force a second piece by inserting at start then appending \n
+            ed.pt.pieces.push_back({ false, ed.pt.addBuf.size(), 5 });
+            ed.pt.addBuf.insert(ed.pt.addBuf.end(), { '\n', 'l', 'i', 'n', 'e' });
+            ed.pt.totalLength += 5;
+            ed.rebuildLineStarts();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.lineStarts.size() == 2, "Cross-piece CRLF produces 2 lines, not 3");
+            ed.pt.initFromFile(doc.data(), doc.size());
+            ed.newlineStr = nl;
+            ed.rebuildLineStarts();
+        }
+
+        // Syntax highlighting: line comment on line 0 must NOT bleed into line 1
+        ed.loadSyntaxForExtension("test.cpp");
+        std::vector<std::pair<size_t, size_t>> commentSpans;
+        std::vector<std::pair<size_t, size_t>> keywordSpans;
+        scanSyntaxHighlighting(ed.currentSyntax, doc, false, [&](size_t s, size_t l, int cat) {
+            if (cat == (int)SyntaxTokenCategory::Comment) commentSpans.push_back({ s, l });
+            else if (cat == (int)SyntaxTokenCategory::Keyword) keywordSpans.push_back({ s, l });
+        });
+        CHECK(commentSpans.size() == 2 && keywordSpans.size() == 3, "Syntax highlighting stops line comments at CR/CRLF/LF and highlights all 3 'int' keywords");
+
+        // Cursor movement: moveCaretVisual forward/backward across line break, moveVisualEnd/Home, getWordBoundaries
+        ed.cursors = { { 0, 0, 0.0f, 0.0f, false, false } };
+        ed.moveVisualEnd(false);
+        size_t line0End = ed.cursors[0].head;
+        CHECK(line0End == 27, "moveVisualEnd strips CR/CRLF/LF accurately");
+        size_t line1Start = ed.lineStarts[1];
+        CHECK(ed.moveCaretVisual(line0End, true) == line1Start, "moveCaretVisual(forward) steps over entire line break in 1 step");
+        CHECK(ed.moveCaretVisual(line1Start, false) == line0End, "moveCaretVisual(backward) steps back over entire line break in 1 step");
+        size_t wStart = 0, wEnd = 0;
+        ed.getWordBoundaries(line1Start, wStart, wEnd);
+        CHECK(wStart == line1Start && wEnd == line1Start + 3, "getWordBoundaries on 'int' at line 1 start stops cleanly at word boundary");
+        ed.getWordBoundaries(line0End - 1, wStart, wEnd);
+        CHECK(wEnd == line0End, "getWordBoundaries at end of line 0 does not cross CR/CRLF/LF");
+
+        // Backspace at line1Start merges line 1 into line 0 cleanly
+        ed.cursors = { { line1Start, line1Start, 0.0f, 0.0f, false, false } };
+        ed.backspaceAtCursors();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.lineStarts.size() == 2, "Backspace at line start deleted full newline sequence");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.lineStarts.size() == 3, "Undo restored 3 lines");
+
+        // Delete forward at line0End merges line 1 into line 0 cleanly
+        ed.cursors = { { line0End, line0End, 0.0f, 0.0f, false, false } };
+        ed.deleteForwardAtCursors();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.lineStarts.size() == 2, "Delete forward at line end deleted full newline sequence");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+
+        // Clipboard paste normalization
+        clipBuf = "pasted1\r\npasted2\rpasted3\npasted4";
+        clipRect = false;
+        ed.lastCopyWasLine = false;
+        ed.cursors = { { 0, 0, 0.0f, 0.0f, false, false } };
+        ed.pasteFromClipboard();
+        verifyLineStartsInvariant(ed);
+        std::string expectedPrefix = "pasted1" + nl + "pasted2" + nl + "pasted3" + nl + "pasted4";
+        CHECK(ed.pt.getRange(0, expectedPrefix.size()) == expectedPrefix, "pasteFromClipboard normalized mixed CRLF/CR/LF to document newlineStr");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+
+        // Rectangular block insert with CR/CRLF/LF lines
+        ed.cursors = { { 0, 0, 0.0f, 0.0f, false, false } };
+        ed.insertRectangularBlock("X\rY\r\nZ");
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.pt.getRange(ed.lineStarts[0], 4) == "Xint" &&
+              ed.pt.getRange(ed.lineStarts[1], 4) == "Yint" &&
+              ed.pt.getRange(ed.lineStarts[2], 4) == "Zint",
+              "insertRectangularBlock splits CR/CRLF/LF and inserts at each line without corrupting line endings");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+
+        // Regex search & replace: ^, $, ., capture groups $1
+        size_t mLen = 0;
+        size_t pCaret = ed.findText(0, "^int beta", true, true, false, true, &mLen);
+        CHECK(pCaret == ed.lineStarts[1] && mLen == 8, "Regex '^int beta' matched at start of line 1");
+        size_t pDollar = ed.findText(0, "comment 1$", true, true, false, true, &mLen);
+        CHECK(pDollar == 18 && mLen == 9, "Regex 'comment 1$' matched before CR/CRLF/LF at end of line 0");
+        size_t pDot = ed.findText(0, "int .*", true, true, false, true, &mLen);
+        CHECK(pDot == 0 && mLen == 27, "Regex 'int .*' did not cross CR/CRLF/LF line break");
+
+        // Capture group $1 without ^ and with ^
+        ed.searchQuery = "int ([a-z]+)";
+        ed.replaceQuery = "var_$1";
+        ed.searchRegex = true;
+        ed.searchMatchCase = true;
+        ed.searchWholeWord = false;
+        ed.replaceAll();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.pt.getRange(ed.lineStarts[0], 9) == "var_alpha" &&
+              ed.pt.getRange(ed.lineStarts[1], 8) == "var_beta" &&
+              ed.pt.getRange(ed.lineStarts[2], 9) == "var_gamma",
+              "Regex replaceAll with $1 capture group (without ^) replaced accurately");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+
+        ed.searchQuery = "^int ([a-z]+)";
+        ed.replaceQuery = "let_$1";
+        ed.replaceAll();
+        verifyLineStartsInvariant(ed);
+        CHECK(ed.pt.getRange(ed.lineStarts[0], 9) == "let_alpha" &&
+              ed.pt.getRange(ed.lineStarts[1], 8) == "let_beta" &&
+              ed.pt.getRange(ed.lineStarts[2], 9) == "let_gamma",
+              "Regex replaceAll with ^ and $1 capture group replaced accurately across CR/CRLF/LF");
+        ed.performUndo();
+        verifyLineStartsInvariant(ed);
+
+        // Line Operations: duplicateLines (up/down including EOF), moveLines (up/down including EOF), deleteLines (including EOF), indent/unindent
+        {
+            std::string ldoc = "first" + nl + "second" + nl + "third";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(ldoc.data(), ldoc.size());
+            ed.rebuildLineStarts();
+            verifyLineStartsInvariant(ed);
+
+            // Duplicate EOF line 2 down
+            ed.cursors = { { ed.lineStarts[2], ed.lineStarts[2], 0.0f, 0.0f, false, false } };
+            ed.duplicateLines(false);
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second" + nl + "third" + nl + "third",
+                  "duplicateLines(down) on EOF line uses document newlineStr");
+            ed.performUndo();
+            verifyLineStartsInvariant(ed);
+
+            // Duplicate line 1 up
+            ed.cursors = { { ed.lineStarts[1], ed.lineStarts[1], 0.0f, 0.0f, false, false } };
+            ed.duplicateLines(true);
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second" + nl + "second" + nl + "third",
+                  "duplicateLines(up) preserves document newlineStr");
+            ed.performUndo();
+            verifyLineStartsInvariant(ed);
+
+            // Move line 1 down (swapping with EOF line 2 that has no trailing newline)
+            ed.cursors = { { ed.lineStarts[1], ed.lineStarts[1], 0.0f, 0.0f, false, false } };
+            ed.moveLines(false);
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "third" + nl + "second",
+                  "moveLines(down) across EOF line preserves document newlineStr");
+
+            // Move EOF line 2 back up to line 1
+            ed.moveLines(true);
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second" + nl + "third",
+                  "moveLines(up) from EOF line restores exact document");
+
+            // Delete EOF line 2 (must strip preceding CR/CRLF/LF)
+            ed.cursors = { { ed.lineStarts[2], ed.lineStarts[2], 0.0f, 0.0f, false, false } };
+            ed.deleteLine();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second",
+                  "deleteLine on EOF line strips preceding newline");
+            ed.performUndo();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second" + nl + "third",
+                  "Undo deleteLine restores exact document");
+
+            // Indent & Unindent all lines
+            ed.selectAll();
+            ed.indentLines();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "\tfirst" + nl + "\tsecond" + nl + "\tthird",
+                  "indentLines prepends tab across CR/CRLF/LF lines");
+            ed.unindentLines();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "first" + nl + "second" + nl + "third",
+                  "unindentLines removes tab across CR/CRLF/LF lines");
+        }
+
+        // Toggle Comment (Line & Block), Case Conversion, Bracket Jump, Emmet, SelectNextOccurrence
+        {
+            std::string cdoc = "int a = 1;" + nl + "int b = 2;";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(cdoc.data(), cdoc.size());
+            ed.rebuildLineStarts();
+            ed.loadSyntaxForExtension("main.cpp");
+            ed.selectAll();
+            ed.toggleComment();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "// int a = 1;" + nl + "// int b = 2;",
+                  "toggleComment ON for C++ across CR/CRLF/LF");
+            ed.toggleComment();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == cdoc,
+                  "toggleComment OFF for C++ across CR/CRLF/LF");
+
+            std::string cssDoc = "color: red;" + nl + "margin: 0;";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(cssDoc.data(), cssDoc.size());
+            ed.rebuildLineStarts();
+            ed.loadSyntaxForExtension("style.css");
+            ed.selectAll();
+            ed.toggleComment();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "/* color: red; */" + nl + "/* margin: 0; */",
+                  "toggleComment block comment ON for CSS across CR/CRLF/LF");
+            ed.toggleComment();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == cssDoc,
+                  "toggleComment block comment OFF for CSS across CR/CRLF/LF");
+
+            // Case conversion
+            std::string caseDoc = "hello ＡＢＣ" + nl + "world";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(caseDoc.data(), caseDoc.size());
+            ed.rebuildLineStarts();
+            ed.selectAll();
+            ed.convertSelectedText(true);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "HELLO ＡＢＣ" + nl + "WORLD",
+                  "convertSelectedText(toUpper) across CR/CRLF/LF");
+            ed.convertSelectedText(false);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "hello ａｂｃ" + nl + "world",
+                  "convertSelectedText(toLower) across CR/CRLF/LF");
+
+            // Emmet multi-line expansion (ul>li*2)
+            std::string emDoc = "ul>li*2";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(emDoc.data(), emDoc.size());
+            ed.rebuildLineStarts();
+            ed.loadSyntaxForExtension("index.html");
+            ed.cursors = { { emDoc.size(), emDoc.size(), 0.0f, 0.0f, false, false } };
+            bool emOk = ed.tryExpandEmmet();
+            verifyLineStartsInvariant(ed);
+            CHECK(emOk && ed.pt.getRange(0, ed.pt.totalLength) == "<ul>" + nl + "\t<li></li>" + nl + "\t<li></li>" + nl + "</ul>",
+                  "tryExpandEmmet ul>li*2 uses document newlineStr across CR/CRLF/LF");
+        }
+
+        // Rectangular selection with virtual space padding on ragged lines before CR/CRLF/LF
+        {
+            std::string rdoc = "abcdef" + nl + "xy" + nl + "123456";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(rdoc.data(), rdoc.size());
+            ed.rebuildLineStarts();
+            ed.isRectSelecting = true;
+            ed.rectAnchorLine = 0;
+            ed.rectHeadLine = 2;
+            ed.rectAnchorX = 4.0f * ed.charWidth; // col 4 (line 1 "xy" only has 2 chars!)
+            ed.rectHeadX = 4.0f * ed.charWidth;
+            ed.updateRectSelection();
+            ed.insertAtCursors("Z");
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "abcdZef" + nl + "xy  Z" + nl + "1234Z56",
+                  "Rectangular virtual space padding inserts spaces BEFORE CR/CRLF/LF on short line");
+            ed.performUndo();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == rdoc,
+                  "Undo rectangular virtual space edit restores exact ragged lines");
+        }
+
+        // Live Preview (Markdown + GFM Table + Mermaid + Task Toggle) across LF, CRLF, and standalone CR!
+        {
+            std::string mdDoc =
+                "# Title 1" + nl +
+                "- [ ] Task A" + nl +
+                "- [x] Task B" + nl +
+                "| H1 | H2 |" + nl +
+                "| --- | --- |" + nl +
+                "| C1 | C2 |" + nl +
+                "```mermaid" + nl +
+                "flowchart TD" + nl +
+                "    A --> B" + nl +
+                "```";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(mdDoc.data(), mdDoc.size());
+            ed.rebuildLineStarts();
+            auto res = MiuPreview::renderPreview(mdDoc, ".md", false, "testnonce");
+            CHECK(res.fullHtml.find("<h1>Title 1</h1>") != std::string::npos,
+                  "Live Preview renders <h1>Title 1</h1> across CR/CRLF/LF");
+            CHECK(res.fullHtml.find("<table>") != std::string::npos && res.fullHtml.find("<td>C1</td>") != std::string::npos,
+                  "Live Preview renders GFM table across CR/CRLF/LF");
+            CHECK(res.fullHtml.find("data-line=\"1\"") != std::string::npos && res.fullHtml.find("data-line=\"2\"") != std::string::npos,
+                  "Live Preview renders task list checkboxes with exact data-line indices across CR/CRLF/LF");
+            CHECK(res.fullHtml.find("pele-diagram") != std::string::npos && res.fullHtml.find("<svg") != std::string::npos,
+                  "Live Preview renders Mermaid block to SVG across CR/CRLF/LF");
+
+            bool toggled1 = ed.handlePreviewTaskToggle(1);
+            verifyLineStartsInvariant(ed);
+            CHECK(toggled1 && ed.pt.getRange(0, ed.pt.totalLength).find("- [x] Task A" + nl + "- [x] Task B") != std::string::npos,
+                  "handlePreviewTaskToggle toggles line 1 from [ ] to [x] across CR/CRLF/LF");
+            bool toggled2 = ed.handlePreviewTaskToggle(2);
+            verifyLineStartsInvariant(ed);
+            CHECK(toggled2 && ed.pt.getRange(0, ed.pt.totalLength).find("- [x] Task A" + nl + "- [ ] Task B") != std::string::npos,
+                  "handlePreviewTaskToggle toggles line 2 from [x] to [ ] across CR/CRLF/LF");
+        }
+
+        // Multi-language UTF-8 Regex Search & Replace (Japanese, Korean, Chinese, European 2-byte, Emoji 4-byte)
+        {
+            std::string doc = "あいう" + nl + "한글A" + nl + "中文😀é";
+            ed.newFile();
+            ed.newlineStr = nl;
+            ed.pt.initFromFile(doc.data(), doc.size());
+            ed.rebuildLineStarts();
+            ed.searchQuery = ".";
+            ed.replaceQuery = "*";
+            ed.searchRegex = true;
+            ed.searchMatchCase = true;
+            ed.replaceAll();
+            verifyLineStartsInvariant(ed);
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "***" + nl + "***" + nl + "****",
+                  "macOS/iOS Regex '.' replaces Japanese/Korean/Chinese/Emoji/European 1 char -> 1 '*' across CR/CRLF/LF");
+
+            std::string doc2 = "あいうABC가나다中文";
+            ed.pt.initFromFile(doc2.data(), doc2.size());
+            ed.rebuildLineStarts();
+            ed.searchQuery = "[あ-ん]";
+            ed.replaceQuery = "H";
+            ed.replaceAll();
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "HHHABC가나다中文",
+                  "macOS/iOS Regex '[あ-ん]' matches Hiragana range only");
+
+            ed.searchQuery = "[가-힣]";
+            ed.replaceQuery = "K";
+            ed.replaceAll();
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "HHHABCKKK中文",
+                  "macOS/iOS Regex '[가-힣]' matches Korean Hangul range only");
+
+            ed.searchQuery = "[一-龥]";
+            ed.replaceQuery = "C";
+            ed.replaceAll();
+            CHECK(ed.pt.getRange(0, ed.pt.totalLength) == "HHHABCKKKCC",
+                  "macOS/iOS Regex '[一-龥]' matches CJK Unified Ideographs range only");
+        }
     }
 }
 
@@ -661,6 +1218,7 @@ int main() {
     testPhase4ViewStateRecentFilesAndEncodings();
     testPhase5RandomStressTest600Steps();
     testParityEdgeCases();
+    testPhase6EncodingsNewlinesRectCursorSearch();
 
     std::cout << "\n==========================================" << std::endl;
     std::cout << "Total Assertions Passed: " << g_passCount << std::endl;
