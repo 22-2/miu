@@ -23,6 +23,7 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
   - `WM_SYSKEYDOWN` と `WM_KEYDOWN` の先頭での `g_editor.forkHandleKey(...)` の呼び出し
   - `WM_ACTIVATEAPP` での `g_editor.forkOnAppDeactivated()` の呼び出し（フォーカスを失ったときの自動保存用）
   - `WM_IME_REQUEST` での `g_editor.forkImeRequest(...)` の呼び出し（再変換用）
+  - upstream の `checkUnsavedChanges` の条件に足した `forkIsBlankUntitled()`（空白だけの無題ファイルで保存の確認を出さない）
   - upstream の `moveWordLeft`・`moveWordRight`・`selectWordAt` の先頭での `forkMoveWord` / `forkSelectWordAt` の呼び出し（単語の区切り用）
   - upstream の Ctrl キー処理の条件に足した `!g_editor.forkSkipCtrlShortcuts`
   - メッセージループでの `g_editor.forkPreTranslateKey(...)` の呼び出し（F11 用）
@@ -100,6 +101,10 @@ Ctrl+← / Ctrl+→、Ctrl+Backspace / Ctrl+Delete、ダブルクリックでの
 - 読み取り専用のファイルや、管理者権限がないと書けないファイル（別のアプリで作業中に UAC の確認が出ないようにするため）
 
 upstream の保存処理は、保存後にファイルを開き直すので Undo の履歴が消えます。自動保存では、開き直した内容が保存前と同じサイズ・同じサンプルハッシュなら、Undo / Redo の履歴を元に戻します。違った場合（文字コードの変換で内容が変わったときなど）は、位置がずれて壊れないよう、履歴は消えたままにします。Ctrl+S での保存は upstream のままなので、履歴は消えます。
+
+## 保存の確認
+
+無題のファイルの中身が空、または空白・改行だけのときは、閉じたり別のファイルを開いたりしても「保存しますか」の確認を出しません。名前の付いたファイルは、中身を全部消した場合も確認を出します（保存しないと、元の内容がディスクに残るため）。
 
 ## 最初の準備（clone ごとに1回）
 

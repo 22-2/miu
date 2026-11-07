@@ -293,6 +293,19 @@
         updateDirtyFlag();
     }
 
+    // Hooked into upstream's checkUnsavedChanges: an untitled buffer holding only whitespace
+    // has nothing worth saving, so closing or replacing it does not ask. A named file still
+    // asks, since emptying it and not saving would leave the old content on disk.
+    bool forkIsBlankUntitled() {
+        if (!currentFilePath.empty()) return false;
+        size_t len = pt.length();
+        for (size_t i = 0; i < len; ++i) {
+            char c = pt.charAt(i);
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n') return false;
+        }
+        return true;
+    }
+
     // Ctrl+,: open the settings file, creating it with every setting and its default first.
     void forkOpenSettings() {
         std::wstring path = forkSettingsPath();
