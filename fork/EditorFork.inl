@@ -71,7 +71,6 @@
     // the file's timestamp changes, so saving it in miu applies the change right away.
     struct ForkSettings {
         forklist::BlankItemEnter blankItemEnter = forklist::BlankItemEnter::Continue;
-        bool moveListItemWithChildren = false;
     };
     ForkSettings forkSettingsCache;
     FILETIME forkSettingsStamp = {};
@@ -96,8 +95,6 @@
         GetPrivateProfileStringW(L"list", L"blankItemEnter", L"continue", value, 64, path.c_str());
         if (_wcsicmp(value, L"outdent") == 0) s.blankItemEnter = forklist::BlankItemEnter::Outdent;
         else if (_wcsicmp(value, L"remove") == 0) s.blankItemEnter = forklist::BlankItemEnter::Remove;
-        GetPrivateProfileStringW(L"list", L"moveItemWithChildren", L"false", value, 64, path.c_str());
-        s.moveListItemWithChildren = _wcsicmp(value, L"true") == 0;
         forkSettingsCache = s; forkSettingsStamp = info.ftLastWriteTime; forkSettingsFromFile = true;
         return forkSettingsCache;
     }
@@ -115,11 +112,7 @@
                 ";   continue = add another empty item at the same level\r\n"
                 ";   outdent  = move the item one level out (at the top level, clear the marker)\r\n"
                 ";   remove   = clear the marker\r\n"
-                "blankItemEnter=continue\r\n"
-                "\r\n"
-                "; Ctrl+Shift+Up/Down on a list item: true = move it with its children past its sibling,\r\n"
-                "; false = move only the selected lines\r\n"
-                "moveItemWithChildren=false\r\n";
+                "blankItemEnter=continue\r\n";
             HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
             if (h != INVALID_HANDLE_VALUE) {
                 DWORD written = 0;
@@ -225,7 +218,7 @@
         forkApplyListResult(ctx, r);
         return true;
     }
-    // Ctrl+Shift+Up/Down on a list item when list.moveItemWithChildren is on: move it with its children past its sibling.
+    // Alt+Shift+Up/Down on a list item: move it with its children past its sibling.
     bool forkListMove(bool up) {
         ForkListContext ctx;
         if (!forkListContext(ctx)) return false;
@@ -272,7 +265,12 @@
             if (ctrl && (vk == 'U' || vk == 'L')) { convertCase(vk == 'U'); return true; }
         }
         if (msg == WM_SYSKEYDOWN) {
-            if (vk == VK_UP || vk == VK_DOWN) { if (ctrl || shift) addCursor(up); return true; }
+            // Ctrl+Alt adds a cursor; Alt+Shift moves a list item with its children (plain lines outside lists).
+            if (vk == VK_UP || vk == VK_DOWN) {
+                if (ctrl) addCursor(up);
+                else if (shift && !forkListMove(up)) moveLines(up);
+                return true;
+            }
             if (vk == VK_F3) { selectAllOccurrences(); return true; }
             return false;
         }
@@ -292,7 +290,7 @@
         case VK_UP: case VK_DOWN:
             // Ctrl+Alt+Shift+Up/Down goes on to upstream's rectangular selection.
             if (alt) { if (shift) { forkSkipCtrlShortcuts = true; return false; } addCursor(up); return true; }
-            if (shift) { if (!(forkSettings().moveListItemWithChildren && forkListMove(up))) moveLines(up); }
+            if (shift) moveLines(up);
             else { scrollVisualLines(up ? -1 : 1); InvalidateRect(hwnd, NULL, FALSE); }
             return true;
         default: return false;

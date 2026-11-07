@@ -36,7 +36,8 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 | Enter | 項目を続ける（`- `、`1. `、`- [ ] `）。カーソルより後ろの文字は新しい項目に移る。空の項目での動きは設定 `blankItemEnter` で選べ、既定では同じ階層にもう1つ空の項目を作る |
 | Shift+Enter | 普通の改行 |
 | Tab / Shift+Tab | 項目を子ごとインデント / 戻す。インデントの単位は、そのリストで使っているもの（タブか、いちばん浅いスペースの幅）。なければタブ |
-| Ctrl+Shift+↑/↓ | 普通の行移動。設定 `moveItemWithChildren=true` にすると、リストの中では項目を子ごと、前後の兄弟の項目と入れ替える |
+| Alt+Shift+↑/↓ | 項目を子ごと、前後の兄弟の項目と入れ替える。リストの外では普通の行移動 |
+| Ctrl+Shift+↑/↓ | リストの中でも普通の行移動（選択した行だけを動かす） |
 | Ctrl+Shift+Space | 項目を子ごと選択。押すたびに親の項目、最後にリスト全体へ広がる |
 
 - 番号付きリストは、編集のたびに番号を振り直します。ただし `1. 1. 1.` のように全部同じ番号のリストは、そのままにします。
@@ -49,7 +50,6 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 | セクション / キー | 値 | 既定 | 意味 |
 |---|---|---|---|
 | `[list]` `blankItemEnter` | `continue` / `outdent` / `remove` | `continue` | 空の項目で Enter を押したとき。`continue` は同じ階層に空の項目を足す。`outdent` は1段戻す（最上位では記号を消す）。`remove` は記号を消す |
-| `[list]` `moveItemWithChildren` | `true` / `false` | `false` | Ctrl+Shift+↑/↓ で、リストの項目を子ごと動かすか |
 
 - 値の大文字・小文字は区別しません。知らない値や書き間違いは既定値として扱います。
 - 設定を足すときは、`fork/EditorFork.inl` の `ForkSettings` と `forkSettings()`、`forkOpenSettings()` のひな形、この表を合わせて直します。
