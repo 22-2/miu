@@ -38,6 +38,23 @@
         }
         cursors = result; mergeCursors(); ensureCaretVisible(); InvalidateRect(hwnd, NULL, FALSE);
     }
+    // Ctrl+Backspace / Ctrl+Delete: delete back to the previous / up to the next word stop,
+    // the same stops as Ctrl+Left / Ctrl+Right. Carets with a selection delete only the selection.
+    void deleteWord(bool forward) {
+        if (cursors.empty()) return;
+        rollbackPadding(); isRectSelecting = false;
+        std::vector<Cursor> original = cursors;
+        bool anyRange = false;
+        for (auto& c : cursors) {
+            if (!c.hasSelection()) { c.anchor = c.head; c.head = forward ? moveWordRight(c.head) : moveWordLeft(c.head); }
+            anyRange = anyRange || c.hasSelection();
+        }
+        if (!anyRange) { cursors = original; return; }
+        mergeCursors(); insertAtCursors("");
+        // Undo should bring back the carets as they were, not the word ranges built above.
+        if (!undo.undoStack.empty()) undo.undoStack.back().beforeCursors = original;
+        InvalidateRect(hwnd, NULL, FALSE);
+    }
     void copyFilePath(bool relative) {
         if (currentFilePath.empty()) return;
         std::wstring path = currentFilePath;
@@ -199,6 +216,8 @@
         if (!ctrl) return false;
         switch (vk) {
         case VK_SPACE: if (!shift) return false; return forkListSelect();
+        case VK_BACK: deleteWord(false); return true;
+        case VK_DELETE: deleteWord(true); return true;
         case 'C': if (!shift) return false; copyFilePath(alt); return true;
         case 'D': if (shift) duplicateLines(false); else selectNextOccurrence(); return true;
         case 'L': if (shift) splitSelectionIntoLines(); else expandSelectionToLines(); return true;
