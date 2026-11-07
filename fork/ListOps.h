@@ -344,6 +344,85 @@ inline Result onEnter(const Lines& in, size_t line, size_t col, const std::strin
     return r;
 }
 
+// Rewrites the leading whitespace of s to width w, in tabs when the list indents with tabs.
+inline void setIndentWidth(std::string& s, int w, const std::string& unit) {
+    s.erase(0, leadingBytes(s));
+    if (w <= 0) return;
+    std::string lead = unit == "\t"
+        ? std::string(static_cast<size_t>(w / kTabWidth), '\t') + std::string(static_cast<size_t>(w % kTabWidth), ' ')
+        : std::string(static_cast<size_t>(w), ' ');
+    s.insert(0, lead);
+}
+
+// Outliner-style join: the item at `line` loses its indent and marker, as if they were not
+// text, and its text goes to the end of the line above. Its children follow the text: they
+// keep their depth relative to the item that now holds it (the owner of the line above).
+// Not handled unless the line above belongs to a list.
+inline Result joinItemToPrevious(const Lines& in, size_t line, const std::string& unit) {
+    Result r;
+    if (line == 0 || line >= in.size()) return r;
+    Item it = parseItem(in[line]);
+    size_t target = ownerItem(in, line - 1);
+    if (!it.valid || target == npos) return r;
+    int delta = parseItem(in[target]).indent - it.indent;
+    size_t end = subtreeEnd(in, line);
+    size_t prev = prevSibling(in, line), next = nextSibling(in, line);
+    size_t firstChild = npos;
+    for (size_t j = line + 1; j < end && firstChild == npos; ++j) {
+        if (isItem(in, j)) firstChild = j;
+    }
+    bool lazy = isLazyNumbering(in, line);
+    bool childLazy = firstChild != npos && isLazyNumbering(in, firstChild);
+    r.handled = true;
+    r.lines = in;
+    r.anchor = r.head = Pos{ line - 1, in[line - 1].size() };
+    r.lines[line - 1] += in[line].substr(it.contentStart);
+    for (size_t j = line + 1; j < end; ++j) {
+        if (!isBlank(in[j])) setIndentWidth(r.lines[j], indentWidth(in[j]) + delta, unit);
+    }
+    r.lines.erase(r.lines.begin() + static_cast<std::ptrdiff_t>(line));
+    // When the first item goes, the next one takes its number so the list keeps its start.
+    if (!lazy && prev == npos && next != npos && it.ordered) setNumber(r.lines[next - 1], it.number);
+    // Indices below are in r.lines, where every line after `line` moved up by one.
+    std::vector<size_t> renumber;
+    if (!lazy && prev != npos) renumber.push_back(prev);
+    if (!lazy && next != npos) renumber.push_back(next - 1);
+    if (!childLazy && firstChild != npos) renumber.push_back(firstChild - 1);
+    renumberKeepingCarets(r, renumber);
+    return r;
+}
+
+// Backspace at the start of an item's text. Joins the item to the line above when that line
+// belongs to the list; otherwise (a paragraph, a blank line or the top of the document is
+// above) only the marker is cleared and the line stays.
+inline Result onBackspace(const Lines& in, size_t line, size_t col, const std::string& unit) {
+    Result r;
+    if (line >= in.size()) return r;
+    Item it = parseItem(in[line]);
+    if (!it.valid || col != it.contentStart) return r;
+    r = joinItemToPrevious(in, line, unit);
+    if (r.handled) return r;
+    r.handled = true;
+    r.lines = in;
+    size_t prev = prevSibling(in, line), next = nextSibling(in, line);
+    r.lines[line] = in[line].substr(0, it.indentBytes) + in[line].substr(it.contentStart);
+    r.anchor = r.head = Pos{ line, it.indentBytes };
+    if (isLazyNumbering(in, line)) return r;
+    if (prev == npos && next != npos && it.ordered) setNumber(r.lines[next], it.number);
+    std::vector<size_t> renumber;
+    if (prev != npos) renumber.push_back(prev);
+    if (next != npos) renumber.push_back(next);
+    renumberKeepingCarets(r, renumber);
+    return r;
+}
+
+// Delete at the end of a line that belongs to a list, with an item on the next line:
+// that item's text joins this line (see joinItemToPrevious).
+inline Result onDelete(const Lines& in, size_t line, size_t col, const std::string& unit) {
+    if (line + 1 >= in.size() || col != in[line].size()) return Result{};
+    return joinItemToPrevious(in, line + 1, unit);
+}
+
 // Moves the item at `line` with its children above the previous sibling or below the next
 // one. Not handled outside of lists or when the selection leaves the item.
 inline Result moveItem(const Lines& in, size_t line, bool up, Pos anchor, Pos head) {

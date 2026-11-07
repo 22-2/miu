@@ -192,6 +192,78 @@ static void testSelect() {
     CHECK(!forklist::selectItem({ "text" }, 0, 1, false).handled);
 }
 
+static void testBackspace() {
+    auto r = forklist::onBackspace({ "- a", "- b" }, 1, 2, "\t");
+    CHECK(r.handled);
+    CHECK_LINES(r.lines, { "- ab" });
+    CHECK_POS(r.head, 0, 3);
+
+    // Children follow the text and become children of the item that now holds it.
+    r = forklist::onBackspace({ "- a", "\t- b", "\t\t- b1" }, 1, 3, "\t");
+    CHECK_LINES(r.lines, { "- ab", "\t- b1" });
+    CHECK_POS(r.head, 0, 3);
+
+    r = forklist::onBackspace({ "- a", "\t- a1", "- b", "\t- b1" }, 2, 2, "\t");
+    CHECK_LINES(r.lines, { "- a", "\t- a1b", "\t\t- b1" });
+    CHECK_POS(r.head, 1, 5);
+
+    r = forklist::onBackspace({ "- a", "  - b", "    - b1" }, 1, 4, "  ");
+    CHECK_LINES(r.lines, { "- ab", "  - b1" });
+
+    r = forklist::onBackspace({ "1. a", "2. b", "3. c" }, 1, 3, "\t");
+    CHECK_LINES(r.lines, { "1. ab", "2. c" });
+    CHECK_POS(r.head, 0, 4);
+
+    // The first item of a child list goes; the next one starts the list at the same number.
+    r = forklist::onBackspace({ "1. a", "\t1. b", "\t2. c" }, 1, 4, "\t");
+    CHECK_LINES(r.lines, { "1. ab", "\t1. c" });
+
+    r = forklist::onBackspace({ "- a", "- [ ] b" }, 1, 6, "\t");
+    CHECK_LINES(r.lines, { "- ab" });
+
+    r = forklist::onBackspace({ "- a", "- " }, 1, 2, "\t");
+    CHECK_LINES(r.lines, { "- a" });
+    CHECK_POS(r.head, 0, 3);
+
+    r = forklist::onBackspace({ "- a", "  more", "- b" }, 2, 2, "\t");
+    CHECK_LINES(r.lines, { "- a", "  moreb" });
+    CHECK_POS(r.head, 1, 6);
+
+    // Nothing in the list above: only the marker is cleared.
+    r = forklist::onBackspace({ "text", "- a" }, 1, 2, "\t");
+    CHECK(r.handled);
+    CHECK_LINES(r.lines, { "text", "a" });
+    CHECK_POS(r.head, 1, 0);
+
+    r = forklist::onBackspace({ "", "1. a", "2. b" }, 1, 3, "\t");
+    CHECK_LINES(r.lines, { "", "a", "1. b" });
+
+    r = forklist::onBackspace({ "- a" }, 0, 2, "\t");
+    CHECK_LINES(r.lines, { "a" });
+
+    CHECK(!forklist::onBackspace({ "- a", "- b" }, 1, 1, "\t").handled);
+    CHECK(!forklist::onBackspace({ "- a", "- bc" }, 1, 3, "\t").handled);
+    CHECK(!forklist::onBackspace({ "- a", "text" }, 1, 0, "\t").handled);
+}
+
+static void testDelete() {
+    auto r = forklist::onDelete({ "- a", "- b", "\t- b1" }, 0, 3, "\t");
+    CHECK(r.handled);
+    CHECK_LINES(r.lines, { "- ab", "\t- b1" });
+    CHECK_POS(r.head, 0, 3);
+
+    r = forklist::onDelete({ "- a", "\t- b" }, 0, 3, "\t");
+    CHECK_LINES(r.lines, { "- ab" });
+
+    r = forklist::onDelete({ "1. a", "2. b", "3. c" }, 0, 4, "\t");
+    CHECK_LINES(r.lines, { "1. ab", "2. c" });
+
+    CHECK(!forklist::onDelete({ "- a", "- b" }, 0, 2, "\t").handled);
+    CHECK(!forklist::onDelete({ "text", "- a" }, 0, 4, "\t").handled);
+    CHECK(!forklist::onDelete({ "- a", "text" }, 0, 3, "\t").handled);
+    CHECK(!forklist::onDelete({ "- a" }, 0, 3, "\t").handled);
+}
+
 int main() {
     testParse();
     testStructure();
@@ -199,6 +271,8 @@ int main() {
     testShift();
     testMove();
     testSelect();
+    testBackspace();
+    testDelete();
     if (failures > 0) {
         std::printf("%d failure(s)\n", failures);
         return 1;

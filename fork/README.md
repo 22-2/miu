@@ -15,13 +15,15 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 
 - 独自のコードは `fork/` に置きます。upstream はこのフォルダーを触らないので、衝突しません。
 - `fork/EditorFork.inl` には、`struct Editor` に足すメソッドとキー割り当て（`forkHandleKey`）があります。`Source.cpp` からクラスの中で include しています。ASCII だけで書きます（MSVC が `/utf-8` なしで読むため）。
-- `fork/ListOps.h` には、Markdown のリスト編集の処理があります。Win32 に依存しないので、`fork/tests/` の単体テストで確かめられます。テストは CI の `test` ジョブで、ビルドの前に動きます。
+- `fork/ListOps.h` には、Markdown のリスト編集の処理があります。`fork/WordStops.h` には、単語単位の移動で止まる位置を決める処理があります。どちらも Win32 に依存しないので、`fork/tests/` の単体テストで確かめられます。テストは CI の `test` ジョブで、ビルドの前に動きます。
 - `Source.cpp` に入れる変更は、次のフックだけにします。
-  - `#include "fork/ListOps.h"`（先頭の include の並びの最後）
+  - `#include "fork/ListOps.h"` と `#include "fork/WordStops.h"`（先頭の include の並びの最後）
   - `#include "fork/EditorFork.inl"`（`openFileFromPath` の宣言の直前）
-  - `WM_CHAR` の先頭での `g_editor.forkListEnter()` の呼び出し（Enter 用）
+  - `WM_CHAR` の先頭での `g_editor.forkHandleChar(...)` の呼び出し（Enter と Backspace 用）
   - `WM_SYSKEYDOWN` と `WM_KEYDOWN` の先頭での `g_editor.forkHandleKey(...)` の呼び出し
   - `WM_ACTIVATEAPP` での `g_editor.forkOnAppDeactivated()` の呼び出し（フォーカスを失ったときの自動保存用）
+  - `WM_IME_REQUEST` での `g_editor.forkImeRequest(...)` の呼び出し（再変換用）
+  - upstream の `moveWordLeft`・`moveWordRight`・`selectWordAt` の先頭での `forkMoveWord` / `forkSelectWordAt` の呼び出し（単語の区切り用）
   - upstream の Ctrl キー処理の条件に足した `!g_editor.forkSkipCtrlShortcuts`
   - メッセージループでの `g_editor.forkPreTranslateKey(...)` の呼び出し（F11 用）
   - F1 ヘルプの枠を文字量に合わせる処理
@@ -40,9 +42,39 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 | Alt+Shift+↑/↓ | 項目を子ごと、前後の兄弟の項目と入れ替える。リストの外では普通の行移動 |
 | Ctrl+Shift+↑/↓ | リストの中でも普通の行移動（選択した行だけを動かす） |
 | Ctrl+Shift+Space | 項目を子ごと選択。押すたびに親の項目、最後にリスト全体へ広がる |
+| Backspace | 本文の先頭で押すと、行頭の空白とマーカーを消して、本文を上の行の末尾につなぐ |
+| Delete | リストの行末で押すと、次の項目の空白とマーカーを消して、本文をカーソルの直後につなぐ |
+| ← / → | 本文の先頭の ← で上の行の末尾へ、行末の → で次の項目の本文の先頭へ。マーカーの上は通らない |
+| Home | 本文の先頭へ。そこでもう一度押すと行頭へ |
 
 - 番号付きリストは、編集のたびに番号を振り直します。ただし `1. 1. 1.` のように全部同じ番号のリストは、そのままにします。
 - 子リストとして新しくインデントした番号付きの項目は、1 から始まります。
+
+### 項目をつなぐ（Backspace / Delete）
+
+アウトライナーのように、行頭の空白とマーカー（`- `、`1. `、`- [ ] `）は文字として存在しないものとして扱います。
+
+- つないで消えた項目に子があった場合、子は本文と一緒に移り、つないだ先の項目の子になります（深さの差はそのまま）。
+- 上の行が普通の文章や空行、またはファイルの先頭のとき、Backspace はマーカーだけを消して、行はそのまま残します。
+- Ctrl+Backspace / Ctrl+Delete も、同じ位置では同じ動きをします。Ctrl+← / Ctrl+→ も、同じ位置ではマーカーを飛ばします。
+- 範囲を選択しているとき、カーソルが2つ以上あるとき、マーカーの途中にカーソルがあるときは、普通の動きです。
+
+## 単語単位の移動
+
+Ctrl+← / Ctrl+→、Ctrl+Backspace / Ctrl+Delete、ダブルクリックでの単語選択は、同じ区切りを使います。
+
+- upstream は英数字以外の文字をすべて単語の文字として扱うため、日本語の文はスペースまでひとかたまりでした。
+- 英数字だけの部分は upstream と同じ区切りです（単語の文字・記号・空白）。
+- 日本語などを含む部分は、Windows に入っている ICU（`icu.dll`、Windows 10 1903 以降）の辞書で単語に分けます（例：`日本語|の|テキスト|です|。`）。
+- ICU が使えない環境では、文字の種類（漢字・ひらがな・カタカナ・英数字・記号）で区切ります。
+- 全角スペース（U+3000）は空白として扱います。
+
+## 再変換
+
+文字を選択して変換キーを押すと、IME で変換し直せます（`WM_IME_REQUEST` の `IMR_RECONVERTSTRING`）。選択していないときは、カーソル位置の文節を IME が選びます。
+
+- 1行の中の選択では、前後の文字も IME に渡し、文節の判断に使ってもらいます。複数行の選択は、選択した文字だけを渡します。
+- 変換中は、元の文字は選択されたまま残り、確定すると置き換わります。カーソルが2つ以上あるときは使えません。
 
 ## 設定
 

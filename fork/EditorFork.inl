@@ -67,6 +67,168 @@
         setClipboard(WToUTF8(path), false, false);
     }
 
+    // ---- Word stops (fork/WordStops.h) for Ctrl+Left/Right, Ctrl+Backspace/Delete and
+    // double-click. The dictionary word breaker is Windows' own ICU (icu.dll, Windows 10 1903
+    // and later), loaded at run time; without it, character types decide.
+    struct ForkIcu {
+        typedef void* (__cdecl* OpenFn)(int type, const char* locale, const wchar_t* text, int32_t length, int* status);
+        typedef int32_t (__cdecl* StepFn)(void* iter);
+        typedef void (__cdecl* CloseFn)(void* iter);
+        OpenFn open = nullptr; StepFn first = nullptr; StepFn next = nullptr; CloseFn close = nullptr;
+    };
+    static const ForkIcu& forkIcu() {
+        static const ForkIcu icu = [] {
+            ForkIcu r;
+            HMODULE m = LoadLibraryExW(L"icu.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+            if (!m) return r;
+            r.open = reinterpret_cast<ForkIcu::OpenFn>(GetProcAddress(m, "ubrk_open"));
+            r.first = reinterpret_cast<ForkIcu::StepFn>(GetProcAddress(m, "ubrk_first"));
+            r.next = reinterpret_cast<ForkIcu::StepFn>(GetProcAddress(m, "ubrk_next"));
+            r.close = reinterpret_cast<ForkIcu::CloseFn>(GetProcAddress(m, "ubrk_close"));
+            if (!r.open || !r.first || !r.next || !r.close) r = ForkIcu{};
+            return r;
+        }();
+        return icu;
+    }
+    // One flag per UTF-16 unit (plus one), true where ICU puts a word boundary. Empty without ICU.
+    static std::vector<bool> forkDictBreaks(const std::wstring& text) {
+        const int kWordBreak = 1, kDone = -1;  // UBRK_WORD, UBRK_DONE
+        const ForkIcu& icu = forkIcu();
+        if (!icu.open || text.empty()) return {};
+        int status = 0;
+        void* iter = icu.open(kWordBreak, "ja", text.c_str(), (int32_t)text.size(), &status);
+        if (status > 0 || !iter) { if (iter) icu.close(iter); return {}; }  // U_FAILURE
+        std::vector<bool> flags(text.size() + 1, false);
+        for (int32_t p = icu.first(iter); p != kDone; p = icu.next(iter)) {
+            if (p >= 0 && (size_t)p <= text.size()) flags[(size_t)p] = true;
+        }
+        icu.close(iter);
+        return flags;
+    }
+    // Runs of the line around pos, as document offsets. Only kSpan bytes each way are read
+    // so very long lines stay fast; a stop at the edge of that window is still a usable stop.
+    std::vector<forkword::Run> forkWordRuns(size_t pos) {
+        const size_t kSpan = 4096;
+        int line = getLineIdx(pos);
+        size_t ls = lineStarts[line], le = lineContentEnd(line);
+        size_t ws = pos > ls + kSpan ? pos - kSpan : ls;
+        size_t we = le > pos + kSpan ? pos + kSpan : le;
+        // Do not cut a UTF-8 sequence.
+        while (ws > ls && ((unsigned char)pt.charAt(ws) & 0xC0) == 0x80) ws--;
+        while (we < le && ((unsigned char)pt.charAt(we) & 0xC0) == 0x80) we++;
+        forkword::Decoded d = forkword::decode(pt.getRange(ws, we - ws));
+        std::vector<bool> breaks = forkDictBreaks(d.utf16);
+        std::vector<forkword::Run> runs = forkword::runs(d, breaks.empty() ? nullptr : &breaks);
+        for (auto& r : runs) { r.start += ws; r.end += ws; }
+        return runs;
+    }
+    bool forkIsLineBreakAt(size_t p) { return p >= pt.length() || pt.charAt(p) == '\r' || pt.charAt(p) == '\n'; }
+    // Hooked at the top of upstream's moveWordLeft / moveWordRight. Returns npos to leave
+    // line breaks to upstream.
+    size_t forkMoveWord(size_t pos, bool forward) {
+        if (lineStarts.empty()) return std::string::npos;
+        size_t list = forkListCaretStop(pos, forward);
+        if (list != std::string::npos) return list;
+        if (forward) {
+            if (forkIsLineBreakAt(pos)) return std::string::npos;
+            std::vector<forkword::Run> runs = forkWordRuns(pos);
+            return runs.empty() ? std::string::npos : forkword::nextStop(runs, pos);
+        }
+        if (pos == 0 || forkIsLineBreakAt(pos - 1)) return std::string::npos;
+        std::vector<forkword::Run> runs = forkWordRuns(pos);
+        return runs.empty() ? std::string::npos : forkword::prevStop(runs, pos);
+    }
+    // Hooked at the top of upstream's selectWordAt (double-click). Like upstream, a click on
+    // a space or the line end right after a word selects that word. Line breaks stay upstream's.
+    bool forkSelectWordAt(size_t pos, bool addSelection) {
+        if (lineStarts.empty()) return false;
+        size_t p = pos;
+        bool onSpaceOrEnd = forkIsLineBreakAt(p);
+        if (!onSpaceOrEnd) { std::vector<forkword::Run> here = forkWordRuns(p); onSpaceOrEnd = here[forkword::runAt(here, p)].space; }
+        if (onSpaceOrEnd && p > 0 && !forkIsLineBreakAt(p - 1)) {
+            std::vector<forkword::Run> before = forkWordRuns(p - 1);
+            if (!before[forkword::runAt(before, p - 1)].space) p = p - 1;
+        }
+        if (forkIsLineBreakAt(p)) return false;
+        std::vector<forkword::Run> runs = forkWordRuns(p);
+        const forkword::Run& r = runs[forkword::runAt(runs, p)];
+        Cursor newCur = { r.end, r.start, getXFromPos(r.end) };
+        if (addSelection) {
+            std::vector<Cursor> kept;
+            for (const auto& existing : cursors) if (existing.hasSelection()) kept.push_back(existing);
+            kept.push_back(newCur);
+            cursors = std::move(kept);
+            mergeCursors();
+        } else {
+            cursors.clear();
+            cursors.push_back(newCur);
+        }
+        return true;
+    }
+
+    // ---- IME reconversion: the Henkan key on selected text (or at the caret). The IME asks
+    // for the text around the selection (IMR_RECONVERTSTRING), then says which part it will
+    // convert (IMR_CONFIRMRECONVERTSTRING); that part is selected so the result replaces it.
+    size_t forkReconvStart = 0;           // document offset of the text given to the IME
+    std::vector<size_t> forkReconvBytes;  // byte offset from forkReconvStart of each UTF-16 unit, plus the end
+    LRESULT forkReconvertString(RECONVERTSTRING* rs) {
+        const size_t kSpan = 1024;
+        if (cursors.size() != 1 || isRectSelecting || lineStarts.empty()) return 0;
+        size_t s = cursors[0].start(), e = cursors[0].end();
+        int line = getLineIdx(s);
+        size_t ts = s, te = e;
+        // A selection inside one line goes with the rest of its line, which helps the IME
+        // choose words; a selection over several lines goes alone.
+        if (e <= lineContentEnd(line)) {
+            size_t ls = lineStarts[line], le = lineContentEnd(line);
+            ts = s > ls + kSpan ? s - kSpan : ls;
+            te = le > e + kSpan ? e + kSpan : le;
+            while (ts > ls && ((unsigned char)pt.charAt(ts) & 0xC0) == 0x80) ts--;
+            while (te < le && ((unsigned char)pt.charAt(te) & 0xC0) == 0x80) te++;
+        }
+        forkword::Decoded d = forkword::decode(pt.getRange(ts, te - ts));
+        DWORD size = (DWORD)(sizeof(RECONVERTSTRING) + (d.utf16.size() + 1) * sizeof(wchar_t));
+        if (!rs) return size;
+        if (rs->dwSize < size) return 0;
+        auto unitOf = [&](size_t byte) {
+            size_t k = (size_t)(std::lower_bound(d.cpByte.begin(), d.cpByte.end(), byte) - d.cpByte.begin());
+            return d.cpUnit[std::min(k, d.cpUnit.size() - 1)];
+        };
+        size_t compStart = unitOf(s - ts), compEnd = unitOf(e - ts);
+        rs->dwVersion = 0;
+        rs->dwStrLen = (DWORD)d.utf16.size();
+        rs->dwStrOffset = sizeof(RECONVERTSTRING);
+        rs->dwCompStrLen = rs->dwTargetStrLen = (DWORD)(compEnd - compStart);
+        rs->dwCompStrOffset = rs->dwTargetStrOffset = (DWORD)(compStart * sizeof(wchar_t));
+        wchar_t* str = reinterpret_cast<wchar_t*>(reinterpret_cast<BYTE*>(rs) + rs->dwStrOffset);
+        std::copy(d.utf16.begin(), d.utf16.end(), str);
+        str[d.utf16.size()] = L'\0';
+        forkReconvStart = ts;
+        forkReconvBytes.assign(d.utf16.size() + 1, 0);
+        for (size_t k = 0; k + 1 < d.cpUnit.size(); ++k) {
+            for (size_t u = d.cpUnit[k]; u < d.cpUnit[k + 1]; ++u) forkReconvBytes[u] = d.cpByte[k];
+        }
+        forkReconvBytes[d.utf16.size()] = d.cpByte.back();
+        return size;
+    }
+    LRESULT forkConfirmReconvert(const RECONVERTSTRING* rs) {
+        if (!rs || forkReconvBytes.empty()) return FALSE;
+        size_t from = rs->dwCompStrOffset / sizeof(wchar_t), to = from + rs->dwCompStrLen;
+        if (to >= forkReconvBytes.size()) return FALSE;
+        size_t a = forkReconvStart + forkReconvBytes[from], b = forkReconvStart + forkReconvBytes[to];
+        if (b > pt.length()) return FALSE;
+        rollbackPadding(); isRectSelecting = false;
+        cursors.clear(); cursors.push_back({ b, a, getXFromPos(b) });
+        InvalidateRect(hwnd, NULL, FALSE);
+        return TRUE;
+    }
+    // Called for WM_IME_REQUEST; other requests keep the default handling.
+    LRESULT forkImeRequest(WPARAM wParam, LPARAM lParam) {
+        if (wParam == IMR_RECONVERTSTRING) return forkReconvertString(reinterpret_cast<RECONVERTSTRING*>(lParam));
+        if (wParam == IMR_CONFIRMRECONVERTSTRING) return forkConfirmReconvert(reinterpret_cast<const RECONVERTSTRING*>(lParam));
+        return DefWindowProc(hwnd, WM_IME_REQUEST, wParam, lParam);
+    }
+
     // ---- Fork settings: %APPDATA%\miu\fork.ini, opened with Ctrl+, and read again whenever
     // the file's timestamp changes, so saving it in miu applies the change right away.
     struct ForkSettings {
@@ -287,6 +449,79 @@
         return true;
     }
 
+    // ---- Outliner feel: the indent and marker of an item act as if they were not text.
+    // Backspace at the start of an item's text: join it to the line above (fork/ListOps.h onBackspace).
+    bool forkListBackspace() {
+        ForkListContext ctx;
+        if (!forkListContext(ctx) || cursors[0].hasSelection()) return false;
+        forklist::Result r = forklist::onBackspace(ctx.lines, ctx.head.line, ctx.head.col, forklist::detectIndentUnit(ctx.lines));
+        if (!r.handled) return false;
+        forkApplyListResult(ctx, r);
+        return true;
+    }
+    // Delete at the end of a list line: the next item's text joins it.
+    bool forkListDelete() {
+        ForkListContext ctx;
+        if (!forkListContext(ctx) || cursors[0].hasSelection()) return false;
+        forklist::Result r = forklist::onDelete(ctx.lines, ctx.head.line, ctx.head.col, forklist::detectIndentUnit(ctx.lines));
+        if (!r.handled) return false;
+        forkApplyListResult(ctx, r);
+        return true;
+    }
+    // Where Left / Right (and the word moves) go from pos when they step over a marker:
+    // from an item's text start to the end of the line above, and from a line end to the
+    // text start of an item on the next line. npos when no marker is in the way.
+    size_t forkListCaretStop(size_t pos, bool forward) {
+        if (!forkIsListDocument() || lineStarts.empty()) return std::string::npos;
+        int line = getLineIdx(pos);
+        if (forward) {
+            if (pos != lineContentEnd(line) || line + 1 >= (int)lineStarts.size()) return std::string::npos;
+            forklist::Item next = forklist::parseItem(forkLineText(line + 1));
+            return next.valid ? lineStarts[line + 1] + next.contentStart : std::string::npos;
+        }
+        forklist::Item it = forklist::parseItem(forkLineText(line));
+        if (!it.valid || line == 0 || pos != lineStarts[line] + it.contentStart) return std::string::npos;
+        return lineContentEnd(line - 1);
+    }
+    void forkPlaceCaret(size_t head, bool extend) {
+        Cursor& c = cursors[0];
+        c.head = head; c.affinity = false;
+        if (!extend) c.anchor = head;
+        c.desiredX = getXFromPos(head);
+        ensureCaretVisible(); InvalidateRect(hwnd, NULL, FALSE);
+    }
+    // Left / Right over a marker. Single caret only; a selection collapses the upstream way.
+    bool forkListArrow(bool forward, bool shift) {
+        if (cursors.size() != 1 || isRectSelecting || (cursors[0].hasSelection() && !shift)) return false;
+        size_t stop = forkListCaretStop(cursors[0].head, forward);
+        if (stop == std::string::npos) return false;
+        rollbackPadding();
+        forkPlaceCaret(stop, shift);
+        return true;
+    }
+    // Home on an item goes to its text start first; pressed there, upstream takes it to the line start.
+    bool forkListHome(bool shift) {
+        if (!forkIsListDocument() || cursors.size() != 1 || isRectSelecting || lineStarts.empty()) return false;
+        size_t head = cursors[0].head;
+        int line = getLineIdx(head);
+        forklist::Item it = forklist::parseItem(forkLineText(line));
+        if (!it.valid) return false;
+        size_t textStart = lineStarts[line] + it.contentStart;
+        if (head <= textStart) return false;
+        // On a wrapped line, Home below the first row stays upstream's (start of that row).
+        if (wordWrapEnabled) { bool aff = false; if (moveVisualHome(head, cursors[0].affinity, aff) > textStart) return false; }
+        rollbackPadding();
+        forkPlaceCaret(textStart, shift);
+        return true;
+    }
+    // Called first from WM_CHAR. Returns true when the character was consumed.
+    bool forkHandleChar(WPARAM ch) {
+        if (ch == 13) return forkListEnter();
+        // Ctrl+H also sends a backspace character; upstream ignores Ctrl characters.
+        if (ch == 8 && !(GetKeyState(VK_CONTROL) & 0x8000)) return forkListBackspace();
+        return false;
+    }
+
     // Sublime-style keymap. Called first from WM_KEYDOWN / WM_SYSKEYDOWN.
     // Upstream shortcuts replaced by the keymap are swallowed here so each action keeps a single key.
     // Returns true when the key was consumed.
@@ -311,12 +546,21 @@
             if (vk == VK_F3) { selectAllOccurrences(); return true; }
             return false;
         }
-        if (vk == VK_TAB && !ctrl && !alt) return forkListShift(shift);
+        if (!ctrl && !alt) {
+            switch (vk) {
+            case VK_TAB: return forkListShift(shift);
+            case VK_DELETE: return !shift && forkListDelete();
+            case VK_LEFT: case VK_RIGHT: return forkListArrow(vk == VK_RIGHT, shift);
+            case VK_HOME: return forkListHome(shift);
+            default: return false;
+            }
+        }
         if (!ctrl) return false;
         switch (vk) {
         case VK_SPACE: if (!shift) return false; return forkListSelect();
-        case VK_BACK: deleteWord(false); return true;
-        case VK_DELETE: deleteWord(true); return true;
+        // At an item's text start / a list line's end these join items like Backspace / Delete.
+        case VK_BACK: if (!forkListBackspace()) deleteWord(false); return true;
+        case VK_DELETE: if (!forkListDelete()) deleteWord(true); return true;
         case VK_OEM_COMMA: forkOpenSettings(); return true;
         case 'C': if (!shift) return false; copyFilePath(alt); return true;
         case 'D': if (shift) duplicateLines(false); else selectNextOccurrence(); return true;
