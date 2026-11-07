@@ -15,14 +15,32 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 
 - 独自のコードは `fork/` に置きます。upstream はこのフォルダーを触らないので、衝突しません。
 - `fork/EditorFork.inl` には、`struct Editor` に足すメソッドとキー割り当て（`forkHandleKey`）があります。`Source.cpp` からクラスの中で include しています。ASCII だけで書きます（MSVC が `/utf-8` なしで読むため）。
+- `fork/ListOps.h` には、Markdown のリスト編集の処理があります。Win32 に依存しないので、`fork/tests/` の単体テストで確かめられます。テストは CI の `test` ジョブで、ビルドの前に動きます。
 - `Source.cpp` に入れる変更は、次のフックだけにします。
+  - `#include "fork/ListOps.h"`（先頭の include の並びの最後）
   - `#include "fork/EditorFork.inl"`（`openFileFromPath` の宣言の直前）
+  - `WM_CHAR` の先頭での `g_editor.forkListEnter()` の呼び出し（Enter 用）
   - `WM_SYSKEYDOWN` と `WM_KEYDOWN` の先頭での `g_editor.forkHandleKey(...)` の呼び出し
   - upstream の Ctrl キー処理の条件に足した `!g_editor.forkSkipCtrlShortcuts`
   - メッセージループでの `g_editor.forkPreTranslateKey(...)` の呼び出し（F11 用）
   - F1 ヘルプの枠を文字量に合わせる処理
 - upstream のキーを無効にしたいときは、upstream のコードを消さずに `forkHandleKey` で先に受け取って捨てます。
 - ヘルプの文言（`miu.rc` の `IDS_HELP_TEXT`）は、日本語と英語だけ直しています。
+
+## リスト編集
+
+拡張子が `md`・`markdown`・`mdx`・`txt` のファイルと、新規作成した無題のファイルで有効です。コードの中の `- ` や `1.` には反応しません。カーソルが1つのときだけ動きます。
+
+| キー | 動作 |
+|---|---|
+| Enter | 項目を続ける（`- `、`1. `、`- [ ] `）。カーソルより後ろの文字は新しい項目に移る。空の項目では、入れ子なら1段戻し、最上位なら記号を消す |
+| Shift+Enter | 普通の改行 |
+| Tab / Shift+Tab | 項目を子ごとインデント / 戻す。インデントの単位は、そのリストで使っているもの（タブか、いちばん浅いスペースの幅）。なければタブ |
+| Ctrl+Shift+↑/↓ | 項目を子ごと、前後の兄弟の項目と入れ替える。リストの外では普通の行移動 |
+| Ctrl+Shift+Space | 項目を子ごと選択。押すたびに親の項目、最後にリスト全体へ広がる |
+
+- 番号付きリストは、編集のたびに番号を振り直します。ただし `1. 1. 1.` のように全部同じ番号のリストは、そのままにします。
+- 子リストとして新しくインデントした番号付きの項目は、1 から始まります。
 
 ## 最初の準備（clone ごとに1回）
 
