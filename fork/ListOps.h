@@ -200,9 +200,11 @@ inline void setNumber(std::string& s, long n) {
     s.replace(it.indentBytes, it.markerEnd - 1 - it.indentBytes, std::to_string(n));
 }
 
+// Callers check isLazyNumbering on the list before editing it, since an edit can make
+// a numbered list look lazy (for example "1. b, 1. a" right after moving an item up).
 // Numbers the ordered items among the siblings of item i from the first item's number.
 inline void renumberGroup(Lines& L, size_t i) {
-    if (!isItem(L, i) || isLazyNumbering(L, i)) return;
+    if (!isItem(L, i)) return;
     std::vector<size_t> ordered = orderedSiblings(L, i);
     if (ordered.empty()) return;
     long first = parseItem(L[ordered[0]]).number;
@@ -263,6 +265,7 @@ inline Result shiftItems(const Lines& in, size_t first, size_t last, bool outden
     std::vector<size_t> renumber;
     for (size_t root : roots) {
         if (outdent && parseItem(in[root]).indent == 0) continue;
+        bool lazy = isLazyNumbering(in, root);
         size_t prev = prevSibling(in, root), next = nextSibling(in, root);
         size_t end = subtreeEnd(in, root);
         for (size_t j = root; j < end; ++j) {
@@ -280,6 +283,7 @@ inline Result shiftItems(const Lines& in, size_t first, size_t last, bool outden
             }
         }
         // An item indented into a new child list starts that list at 1.
+        if (lazy) continue;
         if (!outdent && prevSibling(r.lines, root) == npos) {
             std::string before = r.lines[root];
             setNumber(r.lines[root], 1);
@@ -310,6 +314,7 @@ inline Result onEnter(const Lines& in, size_t line, size_t col, const std::strin
         size_t prev = prevSibling(in, line), next = nextSibling(in, line);
         r.lines[line].clear();
         r.anchor = r.head = Pos{ line, 0 };
+        if (isLazyNumbering(in, line)) return r;
         if (prev != npos) renumberKeepingCarets(r, { prev });
         else if (next != npos) renumberKeepingCarets(r, { next });
         return r;
@@ -318,15 +323,16 @@ inline Result onEnter(const Lines& in, size_t line, size_t col, const std::strin
     while (before.size() > it.contentStart && isSpace(before.back())) before.pop_back();
     std::string after = s.substr(col);
     after.erase(0, leadingBytes(after));
+    bool lazy = isLazyNumbering(in, line);
     std::string marker = it.ordered
-        ? std::to_string(isLazyNumbering(in, line) ? it.number : it.number + 1) + it.mark
+        ? std::to_string(lazy ? it.number : it.number + 1) + it.mark
         : std::string(1, it.mark);
     std::string prefix = s.substr(0, it.indentBytes) + marker + " " + (it.hasCheckbox ? "[ ] " : "");
     r.handled = true;
     r.lines = in;
     r.lines[line] = before;
     r.lines.insert(r.lines.begin() + static_cast<std::ptrdiff_t>(line) + 1, prefix + after);
-    renumberGroup(r.lines, line + 1);
+    if (!lazy) renumberGroup(r.lines, line + 1);
     r.anchor = r.head = Pos{ line + 1, parseItem(r.lines[line + 1]).contentStart };
     return r;
 }
@@ -347,6 +353,7 @@ inline Result moveItem(const Lines& in, size_t line, bool up, Pos anchor, Pos he
     // The list keeps its start number even when its first item moves.
     std::vector<size_t> orderedBefore = orderedSiblings(in, a);
     long startNumber = orderedBefore.empty() ? 0 : parseItem(in[orderedBefore.front()]).number;
+    bool lazy = isLazyNumbering(in, a);
     Lines out = range(0, up ? 0 : a);
     size_t movedTo;
     if (up) {
@@ -366,8 +373,9 @@ inline Result moveItem(const Lines& in, size_t line, bool up, Pos anchor, Pos he
     r.lines = out;
     r.anchor.line = r.anchor.line - a + movedTo;
     r.head.line = r.head.line - a + movedTo;
+    if (lazy) return r;
     std::vector<size_t> orderedAfter = orderedSiblings(r.lines, movedTo);
-    if (!orderedAfter.empty() && !isLazyNumbering(r.lines, movedTo)) {
+    if (!orderedAfter.empty()) {
         size_t firstItem = orderedAfter.front();
         std::string before = r.lines[firstItem];
         setNumber(r.lines[firstItem], startNumber);

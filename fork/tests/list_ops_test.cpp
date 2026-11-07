@@ -112,6 +112,14 @@ static void testShift() {
     CHECK_LINES(r.lines, { "1. a", "2. b", "3. c" });
     CHECK_POS(r.head, 1, 4);
 
+    p = Pos{ 1, 5 };
+    r = forklist::shiftItems({ "1. a", "\t1. b" }, 1, 1, true, "\t", p, p);
+    CHECK_LINES(r.lines, { "1. a", "2. b" });
+
+    p = Pos{ 1, 4 };
+    r = forklist::shiftItems({ "1. a", "1. b", "1. c" }, 1, 1, false, "\t", p, p);
+    CHECK_LINES(r.lines, { "1. a", "\t1. b", "1. c" });
+
     p = Pos{ 0, 2 };
     r = forklist::shiftItems({ "- a", "  - b" }, 0, 1, false, "  ", p, p);
     CHECK_LINES(r.lines, { "  - a", "    - b" });
@@ -135,6 +143,10 @@ static void testMove() {
     r = forklist::moveItem({ "1. a", "2. b" }, 1, true, p, p);
     CHECK_LINES(r.lines, { "1. b", "2. a" });
     CHECK_POS(r.head, 0, 3);
+
+    p = Pos{ 1, 3 };
+    r = forklist::moveItem({ "1. a", "1. b" }, 1, true, p, p);
+    CHECK_LINES(r.lines, { "1. b", "1. a" });
 
     p = Pos{ 0, 2 };
     r = forklist::moveItem({ "- a", "- b" }, 0, true, p, p);
