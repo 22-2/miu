@@ -67,6 +67,70 @@
         setClipboard(WToUTF8(path), false, false);
     }
 
+    // ---- Fork settings: %APPDATA%\miu\fork.ini, opened with Ctrl+, and read again whenever
+    // the file's timestamp changes, so saving it in miu applies the change right away.
+    struct ForkSettings {
+        forklist::BlankItemEnter blankItemEnter = forklist::BlankItemEnter::Continue;
+        bool moveListItemWithChildren = false;
+    };
+    ForkSettings forkSettingsCache;
+    FILETIME forkSettingsStamp = {};
+    bool forkSettingsFromFile = false;
+    static std::wstring forkSettingsPath() {
+        wchar_t appData[MAX_PATH];
+        DWORD n = GetEnvironmentVariableW(L"APPDATA", appData, MAX_PATH);
+        if (n == 0 || n >= MAX_PATH) return L"";
+        return std::wstring(appData) + L"\\miu\\fork.ini";
+    }
+    // Unknown or misspelled values fall back to the defaults; the template lists the valid ones.
+    const ForkSettings& forkSettings() {
+        std::wstring path = forkSettingsPath();
+        WIN32_FILE_ATTRIBUTE_DATA info;
+        if (path.empty() || !GetFileAttributesExW(path.c_str(), GetFileExInfoStandard, &info)) {
+            forkSettingsCache = ForkSettings{}; forkSettingsFromFile = false;
+            return forkSettingsCache;
+        }
+        if (forkSettingsFromFile && CompareFileTime(&info.ftLastWriteTime, &forkSettingsStamp) == 0) return forkSettingsCache;
+        ForkSettings s;
+        wchar_t value[64];
+        GetPrivateProfileStringW(L"list", L"blankItemEnter", L"continue", value, 64, path.c_str());
+        if (_wcsicmp(value, L"outdent") == 0) s.blankItemEnter = forklist::BlankItemEnter::Outdent;
+        else if (_wcsicmp(value, L"remove") == 0) s.blankItemEnter = forklist::BlankItemEnter::Remove;
+        GetPrivateProfileStringW(L"list", L"moveItemWithChildren", L"false", value, 64, path.c_str());
+        s.moveListItemWithChildren = _wcsicmp(value, L"true") == 0;
+        forkSettingsCache = s; forkSettingsStamp = info.ftLastWriteTime; forkSettingsFromFile = true;
+        return forkSettingsCache;
+    }
+    // Ctrl+,: open the settings file, creating it with every setting and its default first.
+    void forkOpenSettings() {
+        std::wstring path = forkSettingsPath();
+        if (path.empty()) return;
+        if (GetFileAttributesW(path.c_str()) == INVALID_FILE_ATTRIBUTES) {
+            CreateDirectoryW(path.substr(0, path.find_last_of(L'\\')).c_str(), NULL);
+            static const char kTemplate[] =
+                "; miu fork settings. Saved changes apply right away.\r\n"
+                "\r\n"
+                "[list]\r\n"
+                "; Enter on an empty list item:\r\n"
+                ";   continue = add another empty item at the same level\r\n"
+                ";   outdent  = move the item one level out (at the top level, clear the marker)\r\n"
+                ";   remove   = clear the marker\r\n"
+                "blankItemEnter=continue\r\n"
+                "\r\n"
+                "; Ctrl+Shift+Up/Down on a list item: true = move it with its children past its sibling,\r\n"
+                "; false = move only the selected lines\r\n"
+                "moveItemWithChildren=false\r\n";
+            HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (h != INVALID_HANDLE_VALUE) {
+                DWORD written = 0;
+                WriteFile(h, kTemplate, (DWORD)(sizeof(kTemplate) - 1), &written, NULL);
+                CloseHandle(h);
+            }
+        }
+        if (!checkUnsavedChanges()) return;
+        openFileFromPath(path);
+    }
+
     // ---- Markdown list editing. The logic lives in fork/ListOps.h; this part feeds it
     // a window of lines around the caret and writes the result back as one undo step.
 
@@ -142,7 +206,7 @@
         if ((GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_SHIFT) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000)) return false;
         ForkListContext ctx;
         if (!forkListContext(ctx) || cursors[0].hasSelection()) return false;
-        forklist::Result r = forklist::onEnter(ctx.lines, ctx.head.line, ctx.head.col, forklist::detectIndentUnit(ctx.lines));
+        forklist::Result r = forklist::onEnter(ctx.lines, ctx.head.line, ctx.head.col, forklist::detectIndentUnit(ctx.lines), forkSettings().blankItemEnter);
         if (!r.handled) return false;
         forkApplyListResult(ctx, r);
         return true;
@@ -161,7 +225,7 @@
         forkApplyListResult(ctx, r);
         return true;
     }
-    // Ctrl+Shift+Up/Down on a list item: move it with its children past its sibling.
+    // Ctrl+Shift+Up/Down on a list item when list.moveItemWithChildren is on: move it with its children past its sibling.
     bool forkListMove(bool up) {
         ForkListContext ctx;
         if (!forkListContext(ctx)) return false;
@@ -218,6 +282,7 @@
         case VK_SPACE: if (!shift) return false; return forkListSelect();
         case VK_BACK: deleteWord(false); return true;
         case VK_DELETE: deleteWord(true); return true;
+        case VK_OEM_COMMA: forkOpenSettings(); return true;
         case 'C': if (!shift) return false; copyFilePath(alt); return true;
         case 'D': if (shift) duplicateLines(false); else selectNextOccurrence(); return true;
         case 'L': if (shift) splitSelectionIntoLines(); else expandSelectionToLines(); return true;
@@ -227,7 +292,7 @@
         case VK_UP: case VK_DOWN:
             // Ctrl+Alt+Shift+Up/Down goes on to upstream's rectangular selection.
             if (alt) { if (shift) { forkSkipCtrlShortcuts = true; return false; } addCursor(up); return true; }
-            if (shift) { if (!forkListMove(up)) moveLines(up); }
+            if (shift) { if (!(forkSettings().moveListItemWithChildren && forkListMove(up))) moveLines(up); }
             else { scrollVisualLines(up ? -1 : 1); InvalidateRect(hwnd, NULL, FALSE); }
             return true;
         default: return false;
