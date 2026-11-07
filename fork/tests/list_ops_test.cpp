@@ -59,36 +59,58 @@ static void testStructure() {
 }
 
 static void testEnter() {
-    auto r = forklist::onEnter({ "- a" }, 0, 3, "\t");
+    const auto C = forklist::BlankItemEnter::Continue;
+    const auto O = forklist::BlankItemEnter::Outdent;
+    const auto R = forklist::BlankItemEnter::Remove;
+    auto r = forklist::onEnter({ "- a" }, 0, 3, "\t", C);
     CHECK(r.handled);
     CHECK_LINES(r.lines, { "- a", "- " });
     CHECK_POS(r.head, 1, 2);
 
-    r = forklist::onEnter({ "- abc" }, 0, 3, "\t");
+    r = forklist::onEnter({ "- abc" }, 0, 3, "\t", C);
     CHECK_LINES(r.lines, { "- a", "- bc" });
     CHECK_POS(r.head, 1, 2);
 
-    r = forklist::onEnter({ "1. a", "2. b" }, 0, 4, "\t");
+    r = forklist::onEnter({ "1. a", "2. b" }, 0, 4, "\t", C);
     CHECK_LINES(r.lines, { "1. a", "2. ", "3. b" });
     CHECK_POS(r.head, 1, 3);
 
-    r = forklist::onEnter({ "1. a", "1. b" }, 1, 4, "\t");
+    r = forklist::onEnter({ "1. a", "1. b" }, 1, 4, "\t", C);
     CHECK_LINES(r.lines, { "1. a", "1. b", "1. " });
 
-    r = forklist::onEnter({ "- [x] done" }, 0, 10, "\t");
+    r = forklist::onEnter({ "- [x] done" }, 0, 10, "\t", C);
     CHECK_LINES(r.lines, { "- [x] done", "- [ ] " });
     CHECK_POS(r.head, 1, 6);
 
-    r = forklist::onEnter({ "- a", "- " }, 1, 2, "\t");
+    // Empty item, Continue: another empty item at the same level.
+    r = forklist::onEnter({ "- a", "- " }, 1, 2, "\t", C);
+    CHECK_LINES(r.lines, { "- a", "- ", "- " });
+    CHECK_POS(r.head, 2, 2);
+
+    r = forklist::onEnter({ "1. a", "2. " }, 1, 3, "\t", C);
+    CHECK_LINES(r.lines, { "1. a", "2. ", "3. " });
+    CHECK_POS(r.head, 2, 3);
+
+    r = forklist::onEnter({ "- a", "\t- " }, 1, 3, "\t", C);
+    CHECK_LINES(r.lines, { "- a", "\t- ", "\t- " });
+    CHECK_POS(r.head, 2, 3);
+
+    // Empty item, Outdent: one level out, or the marker is cleared at the top level.
+    r = forklist::onEnter({ "- a", "- " }, 1, 2, "\t", O);
     CHECK_LINES(r.lines, { "- a", "" });
     CHECK_POS(r.head, 1, 0);
 
-    r = forklist::onEnter({ "- a", "\t- " }, 1, 3, "\t");
+    r = forklist::onEnter({ "- a", "\t- " }, 1, 3, "\t", O);
     CHECK_LINES(r.lines, { "- a", "- " });
     CHECK_POS(r.head, 1, 2);
 
-    CHECK(!forklist::onEnter({ "- a" }, 0, 0, "\t").handled);
-    CHECK(!forklist::onEnter({ "plain" }, 0, 5, "\t").handled);
+    // Empty item, Remove: the marker is cleared at any level.
+    r = forklist::onEnter({ "- a", "\t- " }, 1, 3, "\t", R);
+    CHECK_LINES(r.lines, { "- a", "" });
+    CHECK_POS(r.head, 1, 0);
+
+    CHECK(!forklist::onEnter({ "- a" }, 0, 0, "\t", C).handled);
+    CHECK(!forklist::onEnter({ "plain" }, 0, 5, "\t", C).handled);
 }
 
 static void testShift() {

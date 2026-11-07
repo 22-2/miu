@@ -298,17 +298,24 @@ inline Result shiftItems(const Lines& in, size_t first, size_t last, bool outden
     return r;
 }
 
+// What Enter does on an empty item (the fork.ini setting list.blankItemEnter).
+enum class BlankItemEnter {
+    Continue,  // add another empty item at the same level
+    Outdent,   // move the item one level out; at the top level, clear the marker
+    Remove,    // clear the marker, leaving an empty line
+};
+
 // Enter at or after an item's text start: continues the list with a new item, carrying the
-// rest of the line. On an empty item it outdents, or clears the marker at the top level.
-inline Result onEnter(const Lines& in, size_t line, size_t col, const std::string& unit) {
+// rest of the line. On an empty item it does what `blank` says.
+inline Result onEnter(const Lines& in, size_t line, size_t col, const std::string& unit, BlankItemEnter blank) {
     Result r;
     if (line >= in.size()) return r;
     const std::string& s = in[line];
     Item it = parseItem(s);
     if (!it.valid || col < it.contentStart || col > s.size()) return r;
     Pos caret{ line, col };
-    if (isBlank(s.substr(it.contentStart))) {
-        if (it.indent > 0) return shiftItems(in, line, line, true, unit, caret, caret);
+    if (blank != BlankItemEnter::Continue && isBlank(s.substr(it.contentStart))) {
+        if (blank == BlankItemEnter::Outdent && it.indent > 0) return shiftItems(in, line, line, true, unit, caret, caret);
         r.handled = true;
         r.lines = in;
         size_t prev = prevSibling(in, line), next = nextSibling(in, line);
