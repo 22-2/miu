@@ -1,0 +1,2 @@
+# Git's sh fails on CRLF scripts, so keep shell scripts LF on every checkout.
+*.sh text eol=lf
