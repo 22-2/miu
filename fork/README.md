@@ -21,6 +21,7 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
   - `#include "fork/EditorFork.inl"`（`openFileFromPath` の宣言の直前）
   - `WM_CHAR` の先頭での `g_editor.forkListEnter()` の呼び出し（Enter 用）
   - `WM_SYSKEYDOWN` と `WM_KEYDOWN` の先頭での `g_editor.forkHandleKey(...)` の呼び出し
+  - `WM_ACTIVATEAPP` での `g_editor.forkOnAppDeactivated()` の呼び出し（フォーカスを失ったときの自動保存用）
   - upstream の Ctrl キー処理の条件に足した `!g_editor.forkSkipCtrlShortcuts`
   - メッセージループでの `g_editor.forkPreTranslateKey(...)` の呼び出し（F11 用）
   - F1 ヘルプの枠を文字量に合わせる処理
@@ -50,10 +51,23 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
 | セクション / キー | 値 | 既定 | 意味 |
 |---|---|---|---|
 | `[list]` `blankItemEnter` | `continue` / `outdent` / `remove` | `continue` | 空の項目で Enter を押したとき。`continue` は同じ階層に空の項目を足す。`outdent` は1段戻す（最上位では記号を消す）。`remove` は記号を消す |
+| `[file]` `saveOnFocusLost` | `true` / `false` | `true` | 他のアプリに切り替えたとき、変更があれば保存する（下の「自動保存」） |
 
 - 値の大文字・小文字は区別しません。知らない値や書き間違いは既定値として扱います。
 - 設定を足すときは、`fork/EditorFork.inl` の `ForkSettings` と `forkSettings()`、`forkOpenSettings()` のひな形、この表を合わせて直します。
 - upstream の miu には設定画面がなく、記録しているのは最近使ったファイル（レジストリ）くらいです。そのため、項目が増えるまではファイルで十分という判断です。
+
+## 自動保存
+
+他のアプリに切り替えたとき（`WM_ACTIVATEAPP`）、変更があれば保存します。miu 自身の検索ダイアログなどに移るだけでは保存しません。
+
+次の場合は保存しません。
+
+- 無題のファイル（名前を付けて保存のダイアログが必要になるため）
+- 開いた後に、ほかのアプリでディスク上のファイルが書き換えられた（上書きして消さないため。miu に戻ったときに upstream の「再読み込みしますか」が出ます）
+- 読み取り専用のファイルや、管理者権限がないと書けないファイル（別のアプリで作業中に UAC の確認が出ないようにするため）
+
+upstream の保存処理は、保存後にファイルを開き直すので Undo の履歴が消えます。自動保存では、開き直した内容が保存前と同じサイズ・同じサンプルハッシュなら、Undo / Redo の履歴を元に戻します。違った場合（文字コードの変換で内容が変わったときなど）は、位置がずれて壊れないよう、履歴は消えたままにします。Ctrl+S での保存は upstream のままなので、履歴は消えます。
 
 ## 最初の準備（clone ごとに1回）
 

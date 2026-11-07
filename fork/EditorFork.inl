@@ -71,6 +71,7 @@
     // the file's timestamp changes, so saving it in miu applies the change right away.
     struct ForkSettings {
         forklist::BlankItemEnter blankItemEnter = forklist::BlankItemEnter::Continue;
+        bool saveOnFocusLost = true;
     };
     ForkSettings forkSettingsCache;
     FILETIME forkSettingsStamp = {};
@@ -95,9 +96,41 @@
         GetPrivateProfileStringW(L"list", L"blankItemEnter", L"continue", value, 64, path.c_str());
         if (_wcsicmp(value, L"outdent") == 0) s.blankItemEnter = forklist::BlankItemEnter::Outdent;
         else if (_wcsicmp(value, L"remove") == 0) s.blankItemEnter = forklist::BlankItemEnter::Remove;
+        GetPrivateProfileStringW(L"file", L"saveOnFocusLost", L"true", value, 64, path.c_str());
+        s.saveOnFocusLost = _wcsicmp(value, L"false") != 0;
         forkSettingsCache = s; forkSettingsStamp = info.ftLastWriteTime; forkSettingsFromFile = true;
         return forkSettingsCache;
     }
+    // ---- Save on focus lost (WM_ACTIVATEAPP), like Sublime's save_on_focus_lost.
+    // Skipped when saving could surprise: untitled files (would need Save As), files changed
+    // on disk since they were loaded (would overwrite those changes), and files miu cannot
+    // write without elevation (would raise a UAC prompt while you work in another app).
+    bool forkCanAutoSave() {
+        if (!forkSettings().saveOnFocusLost || !isDirty || currentFilePath.empty() || isCheckingModification) return false;
+        WIN32_FILE_ATTRIBUTE_DATA fad;
+        if (GetFileAttributesExW(currentFilePath.c_str(), GetFileExInfoStandard, &fad)) {
+            if (CompareFileTime(&lastWriteTime, &fad.ftLastWriteTime) < 0) return false;
+            if (fad.dwFileAttributes & FILE_ATTRIBUTE_READONLY) return false;
+            HANDLE h = CreateFileW(currentFilePath.c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+            if (h == INVALID_HANDLE_VALUE) return false;
+            CloseHandle(h);
+        }
+        return true;
+    }
+    void forkOnAppDeactivated() {
+        if (!forkCanAutoSave()) return;
+        commitPadding();
+        // saveFile reopens the file, which clears the undo history. Keep it when the reopened
+        // text has the same size and sample hash as what was saved; otherwise (for example a
+        // lossy encoding) the recorded positions may not match, so the history stays cleared.
+        auto undoStack = undo.undoStack; auto redoStack = undo.redoStack;
+        size_t len = pt.length(); uint32_t hash = calcSampleHash(0, len);
+        if (!saveFile(currentFilePath)) return;
+        if (pt.length() != len || calcSampleHash(0, len) != hash) return;
+        undo.undoStack = std::move(undoStack); undo.redoStack = std::move(redoStack); undo.markSaved();
+        updateDirtyFlag();
+    }
+
     // Ctrl+,: open the settings file, creating it with every setting and its default first.
     void forkOpenSettings() {
         std::wstring path = forkSettingsPath();
@@ -106,6 +139,10 @@
             CreateDirectoryW(path.substr(0, path.find_last_of(L'\\')).c_str(), NULL);
             static const char kTemplate[] =
                 "; miu fork settings. Saved changes apply right away.\r\n"
+                "\r\n"
+                "[file]\r\n"
+                "; true = save the file when you switch to another app (named files only)\r\n"
+                "saveOnFocusLost=true\r\n"
                 "\r\n"
                 "[list]\r\n"
                 "; Enter on an empty list item:\r\n"
