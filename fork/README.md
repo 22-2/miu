@@ -22,7 +22,7 @@ rebase は履歴を書き換えるので、push のたびに force push が必�
   - `WM_CHAR` の先頭での `g_editor.forkHandleChar(...)` の呼び出し（Enter と Backspace 用）
   - `WM_SYSKEYDOWN` と `WM_KEYDOWN` の先頭での `g_editor.forkHandleKey(...)` の呼び出し
   - `WM_ACTIVATEAPP` での `g_editor.forkOnAppDeactivated()` の呼び出し（フォーカスを失ったときの自動保存用）
-  - `WM_IME_REQUEST` での `g_editor.forkImeRequest(...)` の呼び出し（再変換用）
+  - `WM_IME_REQUEST` での `g_editor.forkImeRequest(...)` と、`WM_IME_ENDCOMPOSITION` での `g_editor.forkImeEndComposition()` の呼び出し（再変換用）
   - upstream の `checkUnsavedChanges` の条件に足した `forkIsBlankUntitled()`（空白だけの無題ファイルで保存の確認を出さない）
   - upstream の `moveWordLeft`・`moveWordRight`・`selectWordAt` の先頭での `forkMoveWord` / `forkSelectWordAt` の呼び出し（単語の区切り用）
   - upstream の Ctrl キー処理の条件に足した `!g_editor.forkSkipCtrlShortcuts`
@@ -75,7 +75,9 @@ Ctrl+← / Ctrl+→、Ctrl+Backspace / Ctrl+Delete、ダブルクリックでの
 文字を選択して変換キーを押すと、IME で変換し直せます（`WM_IME_REQUEST` の `IMR_RECONVERTSTRING`）。選択していないときは、カーソル位置の文節を IME が選びます。
 
 - 1行の中の選択では、前後の文字も IME に渡し、文節の判断に使ってもらいます。複数行の選択は、選択した文字だけを渡します。
-- 変換中は、元の文字は選択されたまま残り、確定すると置き換わります。カーソルが2つ以上あるときは使えません。
+- 変換が始まると、元の文字はいったん消え、その場所に変換中の文字が出ます（普通のテキストボックスと同じ）。確定せずに終わった場合は、元の文字を選択した状態に戻します。
+- 消した文字と確定した文字は、1回の Ctrl+Z でまとめて元に戻ります。
+- カーソルが2つ以上あるときは使えません。
 
 ## 設定
 

@@ -211,16 +211,54 @@
         forkReconvBytes[d.utf16.size()] = d.cpByte.back();
         return size;
     }
+    // The confirmed text is removed while the IME converts it, as standard edit controls do,
+    // so the composition shows in its place instead of next to it. forkImeEndComposition puts
+    // the text back if the IME ends without a result.
+    bool forkReconvActive = false;
+    size_t forkReconvUndoDepth = 0;  // undo stack size right after the removal
+    size_t forkReconvLength = 0;     // document length right after the removal
     LRESULT forkConfirmReconvert(const RECONVERTSTRING* rs) {
         if (!rs || forkReconvBytes.empty()) return FALSE;
         size_t from = rs->dwCompStrOffset / sizeof(wchar_t), to = from + rs->dwCompStrLen;
         if (to >= forkReconvBytes.size()) return FALSE;
         size_t a = forkReconvStart + forkReconvBytes[from], b = forkReconvStart + forkReconvBytes[to];
         if (b > pt.length()) return FALSE;
-        rollbackPadding(); isRectSelecting = false;
+        commitPadding(); isRectSelecting = false;
         cursors.clear(); cursors.push_back({ b, a, getXFromPos(b) });
+        forkReconvActive = false;
+        if (a < b) {
+            EditBatch batch; batch.beforeCursors = cursors;
+            std::string text = pt.getRange(a, b - a);
+            pt.erase(a, text.size()); batch.ops.push_back({ EditOp::Erase, a, text });
+            cursors.clear(); cursors.push_back({ a, a, getXFromPos(a) });
+            batch.afterCursors = cursors; undo.push(batch);
+            rebuildLineStarts(); updateDirtyFlag();
+            forkReconvActive = true; forkReconvUndoDepth = undo.undoStack.size(); forkReconvLength = pt.length();
+        }
         InvalidateRect(hwnd, NULL, FALSE);
         return TRUE;
+    }
+    // Called from WM_IME_ENDCOMPOSITION, after the IME has sent its result (if any).
+    void forkImeEndComposition() {
+        if (!forkReconvActive) return;
+        forkReconvActive = false;
+        if (undo.undoStack.size() < forkReconvUndoDepth) return;
+        bool nothingInserted = undo.undoStack.size() == forkReconvUndoDepth && pt.length() == forkReconvLength;
+        if (nothingInserted) {
+            // Cancelled without a result: put the text back and select it as before.
+            EditBatch removal = undo.undoStack.back(); undo.undoStack.pop_back();
+            pt.insert(removal.ops[0].pos, removal.ops[0].text);
+            cursors = removal.beforeCursors;
+            rebuildLineStarts(); updateDirtyFlag(); InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        // One undo step for the removal and the converted text, so Ctrl+Z brings the old text back at once.
+        if (undo.undoStack.size() != forkReconvUndoDepth + 1) return;
+        EditBatch result = undo.undoStack.back(); undo.undoStack.pop_back();
+        EditBatch& removal = undo.undoStack.back();
+        removal.ops.insert(removal.ops.end(), result.ops.begin(), result.ops.end());
+        removal.afterCursors = result.afterCursors;
+        updateDirtyFlag();
     }
     // Called for WM_IME_REQUEST; other requests keep the default handling.
     LRESULT forkImeRequest(WPARAM wParam, LPARAM lParam) {
