@@ -13,7 +13,7 @@ import jwt
 import requests
 
 BUNDLE_ID = "jp.hack.miu"
-TARGET_VERSION = "1.0.49"
+TARGET_VERSION = "1.0.51"
 BASE_URL = "https://api.appstoreconnect.apple.com/v1"
 
 # ============================================================================
@@ -48,11 +48,11 @@ UTF-8やShift_JIS、EUC-JPなど、さまざまな文字コードを自動で判
 miuが、あなたの「書く時間」を少しでも快適にするお手伝いができれば幸いです。"""
 
 JA_WHATS_NEW = """いつも miu をご利用いただきありがとうございます。
-v1.0.49 では、Mermaid 図表プレビューで全角括弧を含むラベルを入力した際の動作改善と、全33種類のダイアグラムにおける多言語文字処理の強化を行いました。
+v1.0.51 では、ライブプレビューのオフライン保護強化、シンタックスハイライト＆Mermaid図表エンジンの精度向上、およびファイル保存の安全性改善を実施しました。
 
-・Mermaid 図表プレビューの全角括弧・長文ラベル折り返し処理を修正：フローチャート等のノードラベルに日本語・韓国語・中国語などの全角文字と全角括弧（（1）、【1】、「1」など）を組み合わせて入力した際（例：A[あいうえおかきくけこ（1）]）、自動折り返し計算で動作が重くなったり停止したりする問題を修正しました。
-・全33種類の Mermaid ダイアグラムにおける多言語文字の解析を改善：日本語（だ・む・場・校・項など）や多言語の UTF-8 マルチバイト文字が空白と誤認されないよう改善し、ラベル・タイトル・太字／斜体記法が正確に描画されるようになりました。
-・高速な編集・一括置換・ライブプレビュー：大容量ファイルの編集や正規表現による一括置換、Markdown / LaTeX数式 / Mermaid図表のリアルタイムプレビューが軽快に動作します。"""
+・ライブプレビューのオフライン分離・セキュリティ強化：Markdown / HTML / SVG / Mermaid / LaTeX プレビューに厳格なオフライン保護（CSP・外部通信遮断・HTMLサニタイズ・タスクリスト切替の暗号トークン検証）を適用し、「<」で始まるテキストファイルの安全なエスケープ表示と長文強調記法の高速描画を改善しました。
+・シンタックスハイライト＆Mermaid図表エンジンの精度向上：全65言語カテゴリにおけるブロックコメントや Python 三重引用符の解析、CRLF 改行を含む未閉鎖 Markdown コードブロックの高速ハイライト、および Mermaid（stateDiagram-v2 複合状態・block-beta・各種チャート）の描画安定性を強化しました。
+・安全なファイル保存と多言語対応の改善：アトミック保存と安全なメモリマップ更新による上書き保存時のデータ保護強化、外部変更検出時の「再読み込み」ローカライズ改善、およびプライバシーマニフェスト対応を行いました。"""
 
 EN_DESC = """miu is a simple, lightweight text and code editor designed to make everything from quick daily notes to Markdown writing and programming feel effortless.
 
@@ -81,11 +81,11 @@ No ads, no tracking, and no data collection. Everything works 100% offline on yo
 Whether you use it as an everyday notepad or a reliable code editor, we hope miu makes your writing time a little more enjoyable."""
 
 EN_WHATS_NEW = """Thank you for using miu.
-Version 1.0.49 fixes a freeze when wrapping Mermaid diagram labels containing full-width brackets and improves multi-language character rendering across all 33 diagram types:
+Version 1.0.51 brings stronger offline security for Live Preview, higher precision across syntax highlighting and Mermaid diagrams, and safer file saving:
 
-• Fixed Mermaid Diagram Line-Wrapping Freeze with Full-Width Brackets: Resolved an issue where node labels combining Japanese, Korean, or Chinese text with full-width brackets (such as （1）, 【1】, or 「1」) could cause the live preview to slow down or stop responding during line-wrap calculation.
-• Improved Multi-Byte UTF-8 Character Parsing Across All 33 Mermaid Diagrams: Prevented UTF-8 continuation bytes in Japanese, Korean, Chinese, and other multi-byte characters from being misinterpreted as whitespace in labels, titles, and bold/italic formatting.
-• Fast Editing, Accurate Multi-Language Regex & Smooth Markdown / LaTeX / Mermaid Live Preview."""
+• Live Preview Offline Isolation & Security: Enforced strict offline Content Security Policy (CSP), external network blocking, HTML/URL sanitization, and per-session cryptographic verification for task-list checkboxes, along with safe display of plain-text files starting with '<' and fast linear-time Markdown emphasis parsing.
+• Syntax Highlighting & Mermaid Precision: Improved Python triple-quoted strings and block-comment progression across all 65 language categories, fast highlighting for unclosed CRLF Markdown code fences, refined Prolog, Rust, F#, and Haskell token rules, and improved Mermaid stateDiagram-v2 composite states, block-beta layouts, and charts.
+• Safer File Saving & Reliability: Enhanced atomic file saving with safe memory-map remapping, localized external file modification "Reload" prompts, and bundled Privacy Manifest metadata."""
 
 ZH_HANS_DESC = """miu 是一款简洁、轻快的文本与代码编辑器。无论是记录日常随笔、撰写 Markdown 文档，还是编写程序代码，都能为您提供舒适顺畅的书写体验。
 
@@ -114,11 +114,11 @@ ZH_HANS_DESC = """miu 是一款简洁、轻快的文本与代码编辑器。无�
 无论是作为日常便签，还是得力的代码编辑器，希望 miu 能陪伴您度过每一段愉快的书写时光。"""
 
 ZH_HANS_WHATS_NEW = """感谢您使用 miu。
-v1.0.49 修复了 Mermaid 图表预览中包含全角括号的中日韩标签在自动换行时可能出现卡顿的问题，并强化了全部 33 种图表的 UTF-8 多字节字符解析：
+v1.0.51 强化了实时预览的离线安全保护，提升了语法高亮与 Mermaid 图表引擎精度，并优化了文件保存的可靠性：
 
-・修复 Mermaid 图表全角括号与长文本自动换行卡顿问题：修复了在流程图等节点标签中同时使用中文、日文、韩文与全角括号（如（1）、【1】、「1」等）时，自动换行计算可能导致预览变慢或停止响应的问题。
-・强化全部 33 种 Mermaid 图表的多语言字符解析：防止中日韩等 UTF-8 多字节字符在标签、标题及粗体/斜体语法中被误判为空白字符，确保所有图表准确渲染。
-・高速编辑、精准的多语言正则表达式替换与 Markdown / LaTeX 公式 / Mermaid 图表实时预览。"""
+・实时预览完全离线隔离与安全加固：为 Markdown / HTML / SVG / Mermaid / LaTeX 预览启用严格的离线安全策略（CSP）、外部网络请求拦截、HTML/URL 过滤与任务列表勾选加密令牌校验，支持安全显示以 `<` 开头的纯文本文件并提升长文本解析速度。
+・语法高亮与 Mermaid 图表精度提升：优化全部 65 种语言类别的块注释与 Python 三引号识别、包含 CRLF 换行的未闭合 Markdown 代码块高速高亮，并增强 Mermaid（stateDiagram-v2 复合状态、block-beta 与数值图表）的渲染稳定性。
+・安全的文件保存与本地化改进：增强原子化文件保存与内存映射安全更新机制，完善外部文件修改“重新加载”多语言提示及隐私清单支持。"""
 
 ZH_HANT_DESC = """miu 是一款簡潔、輕快的純文字與程式碼編輯器。無論是記錄日常隨手筆記、撰寫 Markdown 文章，還是編寫程式碼，都能為您帶來舒適順暢的書寫體驗。
 
@@ -147,11 +147,11 @@ ZH_HANT_DESC = """miu 是一款簡潔、輕快的純文字與程式碼編輯器�
 無論是作為日常記事本，還是可靠的程式碼編輯器，希望 miu 能讓您的書寫時光更加愉快。"""
 
 ZH_HANT_WHATS_NEW = """感謝您使用 miu。
-v1.0.49 修復了 Mermaid 圖表預覽中包含全形括號的中日韓標籤在自動換行時可能出現卡頓的問題，並強化了全部 33 種圖表的 UTF-8 多位元組字元解析：
+v1.0.51 強化了即時預覽的離線安全保護，提升了語法突顯與 Mermaid 圖表引擎精準度，並最佳化了檔案儲存的可靠性：
 
-・修復 Mermaid 圖表全形括號與長文字自動換行卡頓問題：修復了在流程圖等節點標籤中同時使用中文、日文、韓文與全形括號（如（1）、【1】、「1」等）時，自動換行計算可能導致預覽變慢或停止回應的問題。
-・強化全部 33 種 Mermaid 圖表的多語言字元解析：防止中日韓等 UTF-8 多位元組字元在標籤、標題及粗體／斜體語法中被誤判為空白字元，確保所有圖表準確繪製。
-・高速編輯、精準的多語言正規表示式取代與 Markdown / LaTeX 數學公式 / Mermaid 圖表即時預覽。"""
+・即時預覽完全離線隔離與安全加固：為 Markdown / HTML / SVG / Mermaid / LaTeX 預覽啟用嚴格的離線安全原則（CSP）、外部網路請求攔截、HTML/URL 過濾與工作清單核取加密權杖驗證，支援安全顯示以 `<` 開頭的純文字檔並提升長文本解析速度。
+・語法突顯與 Mermaid 圖表精準度提升：最佳化全部 65 種語言類別的區塊註解與 Python 三引號識別、包含 CRLF 換行的未閉合 Markdown 程式碼區塊高速突顯，並增強 Mermaid（stateDiagram-v2 複合狀態、block-beta 與數值圖表）的渲染穩定性。
+・安全的檔案儲存與在地化改進：增強原子化檔案儲存與記憶體映射安全更新機制，完善外部檔案修改「重新載入」多語言提示及隱私權資訊清單支援。"""
 
 KO_DESC = """miu는 일상의 가벼운 메모부터 Markdown 글쓰기, 프로그래밍까지 편안하게 사용할 수 있는 심플한 텍스트 및 코드 에디터입니다.
 
@@ -181,11 +181,11 @@ UTF-8, Shift_JIS, EUC-JP, UTF-16 등 다양한 문자 인코딩을 자동으로 
 miu가 당신의 글쓰기 시간을 조금 더 기분 좋게 만들어 드릴 수 있기를 바랍니다."""
 
 KO_WHATS_NEW = """언제나 miu를 이용해 주셔서 감사합니다.
-v1.0.49에서는 Mermaid 다이어그램 미리보기에서 전각 괄호가 포함된 다국어 라벨을 줄바꿈할 때의 멈춤 현상을 수정하고, 33종 모든 다이어그램의 다국어 문자 처리를 개선했습니다.
+v1.0.51에서는 실시간 미리보기 오프라인 보안 강화, 구문 강조 및 Mermaid 다이어그램 정밀도 향상, 그리고 안전한 파일 저장 개선을 진행했습니다.
 
-・Mermaid 다이어그램 전각 괄호 및 긴 라벨 자동 줄바꿈 멈춤 현상 수정: 플로차트 등의 노드 라벨에 한국어·일본어·중국어 등 전각 문자와 전각 괄호(（1）, 【1】, 「1」 등)를 함께 입력했을 때 자동 줄바꿈 계산 중 미리보기가 무거워지거나 멈추던 문제를 해결했습니다.
-・전체 33종 Mermaid 다이어그램의 다국어 문자 파싱 강화: UTF-8 다중 바이트 문자가 공백으로 오인되지 않도록 개선하여 라벨·제목·굵게/기울임꼴 서식이 정확하게 표시됩니다.
-・빠른 편집, 다국어 정규식 '모두 바꾸기' 및 Markdown / LaTeX 수식 / Mermaid 다이어그램 실시간 미리보기."""
+・실시간 미리보기 오프라인 격리 및 보안 강화: Markdown / HTML / SVG / Mermaid / LaTeX 미리보기에 엄격한 오프라인 보안 정책(CSP·외부 네트워크 차단·HTML 살균·체크리스트 암호화 토큰 검증)을 적용하고, '<'로 시작하는 일반 텍스트 파일의 안전한 표시 및 긴 문서 인라인 강조 고속 파싱을 지원합니다.
+・구문 강조 및 Mermaid 다이어그램 정밀도 향상: 65개 언어 카테고리의 블록 주석 및 Python 삼중 따옴표 인식 개선, CRLF 개행을 포함한 미종결 Markdown 코드 블록 고속 강조, Mermaid(stateDiagram-v2 복합 상태·block-beta·차트) 렌더링 안정성을 강화했습니다.
+・안전한 파일 저장 및 다국어 개선: 원자적 파일 저장 및 안전한 메모리 맵 갱신으로 데이터 보호를 강화하고 외부 파일 변경 시 '다시 불러오기' 다국어 번역 및 개인정보 보호 매니페스트 지원을 보강했습니다."""
 
 DE_DESC = """miu ist ein schlichter, leichtgewichtiger Text- und Code-Editor, mit dem alltägliche Notizen, Markdown-Texte und Programmierarbeiten gleichermaßen angenehm von der Hand gehen.
 
@@ -214,11 +214,11 @@ Keine Werbung, kein Tracking und keine Datenübertragung. Alle Funktionen arbeit
 Ob als täglicher Notizblock oder als verlässlicher Code-Editor – wir hoffen, dass miu Ihnen das Schreiben jeden Tag ein Stück angenehmer macht."""
 
 DE_WHATS_NEW = """Vielen Dank, dass Sie miu nutzen.
-Version 1.0.49 behebt ein Einfrieren beim Zeilenumbruch in Mermaid-Diagrammen mit Vollbreiten-Klammern und verbessert die UTF-8-Zeichenverarbeitung in allen 33 Diagrammtypen:
+Version 1.0.51 verbessert die Offline-Sicherheit der Live-Vorschau, die Präzision der Syntaxhervorhebung und Mermaid-Diagramme sowie die Zuverlässigkeit beim Speichern:
 
-• Zeilenumbruch in Mermaid-Diagrammen korrigiert: Ein Problem wurde behoben, bei dem Knotenbeschriftungen mit japanischen, koreanischen oder chinesischen Zeichen und Vollbreiten-Klammern (z. B. （1）, 【1】) zu Verzögerungen oder zum Einfrieren der Vorschau führen konnten.
-• Verbesserte UTF-8-Verarbeitung in allen 33 Mermaid-Diagrammtypen: Mehrbytige UTF-8-Zeichen werden in Beschriftungen, Titeln und Fett-/Kursivformatierungen zuverlässig erkannt.
-• Schnelles Bearbeiten, präzises Regex-Suchen/Ersetzen und flüssige Live-Vorschau für Markdown, LaTeX & Mermaid."""
+• Offline-Isolierung & Sicherheit der Live-Vorschau: Strenge Offline-CSP, Blockierung externer Netzwerkzugriffe, HTML/URL-Bereinigung und kryptografische Prüfung für Aufgabenlisten sowie sichere Darstellung von Textdateien mit führendem „<“ und schnelles Markdown-Parsing.
+• Präzisere Syntaxhervorhebung & Mermaid-Diagramme: Verbesserte Erkennung von Python-Dreifach-Anführungszeichen und Blockkommentaren in allen 65 Sprachkategorien, schnelles Highlighting offener CRLF-Markdown-Codeblöcke sowie stabilere Mermaid-Diagramme (stateDiagram-v2, block-beta).
+• Sicheres Speichern & Zuverlässigkeit: Verbessertes atomares Speichern mit sicherem Memory-Mapping, lokalisierte Hinweise zum Neuladen extern geänderter Dateien und aktualisiertes Datenschutzmanifest."""
 
 FR_DESC = """miu est un éditeur de texte et de code simple et léger, conçu pour rendre aussi agréables la prise de notes quotidienne, la rédaction en Markdown et la programmation.
 
@@ -247,11 +247,11 @@ Aucune publicité, aucun suivi et aucune collecte de données. Tout fonctionne �
 Comme bloc-notes de tous les jours ou comme éditeur de code fiable, nous espérons que miu rendra vos moments d’écriture plus agréables."""
 
 FR_WHATS_NEW = """Merci d’utiliser miu.
-La version 1.0.49 corrige un blocage lors du retour à la ligne des diagrammes Mermaid contenant des parenthèses pleine chasse et améliore le rendu multilingue sur les 33 types de diagrammes :
+La version 1.0.51 renforce la sécurité hors ligne de l’aperçu en direct, la précision de la coloration syntaxique et des diagrammes Mermaid ainsi que la fiabilité d’enregistrement :
 
-• Correction du retour à la ligne dans les diagrammes Mermaid : résolution d’un problème où les étiquettes combinant du texte japonais, coréen ou chinois avec des parenthèses pleine chasse (telles que （1）, 【1】, 「1」) pouvaient ralentir ou figer l’aperçu.
-• Analyse UTF-8 améliorée sur les 33 types de diagrammes Mermaid : prise en charge précise des caractères UTF-8 multi-octets dans les étiquettes, titres et styles gras/italique.
-• Édition rapide, expressions régulières précises et aperçu en direct Markdown, LaTeX et Mermaid."""
+• Isolation hors ligne et sécurité de l’aperçu en direct : politique CSP stricte hors ligne, blocage des requêtes réseau externes, assainissement HTML/URL, vérification cryptographique des listes de tâches, affichage sûr des fichiers texte commençant par « < » et analyse Markdown rapide.
+• Précision syntaxique et Mermaid : meilleure gestion des triples guillemets Python et commentaires de bloc dans les 65 catégories de langages, coloration rapide des blocs Markdown CRLF non fermés et stabilité accrue des diagrammes Mermaid (stateDiagram-v2, block-beta).
+• Enregistrement sécurisé et fiabilité : sauvegarde atomique améliorée avec remappage mémoire sûr, localisation des invites de rechargement de fichiers modifiés et manifeste de confidentialité intégré."""
 
 ES_DESC = """miu es un editor de texto y código sencillo y ligero, pensado para que desde tus notas rápidas del día a día hasta la escritura en Markdown y la programación resulten cómodas y agradables.
 
@@ -280,11 +280,11 @@ Sin anuncios, sin rastreo y sin envío de datos. Todo funciona 100 % sin conexi�
 Ya sea como tu bloc de notas diario o como un editor de código de confianza, esperamos que miu haga más agradable tu tiempo de escritura."""
 
 ES_WHATS_NEW = """Gracias por usar miu.
-La versión 1.0.49 corrige un bloqueo al ajustar líneas en diagramas Mermaid con paréntesis de ancho completo y mejora el renderizado multilingüe en los 33 tipos de diagramas:
+La versión 1.0.51 refuerza la seguridad sin conexión de la Vista Previa, mejora la precisión del resaltado de sintaxis y los diagramas Mermaid, y aumenta la seguridad al guardar archivos:
 
-• Corrección del ajuste de línea en diagramas Mermaid: se resolvió un problema por el cual las etiquetas con texto en japonés, coreano o chino y paréntesis de ancho completo (como （1）, 【1】, 「1」) podían ralentizar o congelar la vista previa.
-• Mejor análisis UTF-8 en los 33 tipos de diagramas Mermaid: procesamiento preciso de caracteres multibyte en etiquetas, títulos y formato en negrita/cursiva.
-• Edición rápida, expresiones regulares precisas y vista previa en vivo para Markdown, LaTeX y Mermaid."""
+• Aislamiento sin conexión y seguridad en Vista Previa: política CSP estricta sin conexión, bloqueo de red externa, saneamiento HTML/URL, verificación criptográfica en listas de tareas, visualización segura de archivos que comienzan con '<' y análisis rápido de Markdown.
+• Precisión en sintaxis y Mermaid: mejoras en comillas triples de Python y comentarios de bloque en las 65 categorías de lenguajes, resaltado rápido de bloques Markdown CRLF sin cerrar y mayor estabilidad en Mermaid (stateDiagram-v2, block-beta).
+• Guardado seguro y fiabilidad: guardado atómico mejorado con remapeo seguro en memoria, avisos traducidos al recargar archivos modificados externamente y manifiesto de privacidad incluido."""
 
 IT_DESC = """miu è un editor di testo e codice semplice e leggero, pensato per rendere piacevole ogni attività: dagli appunti quotidiani alla scrittura in Markdown, fino alla programmazione.
 
@@ -313,11 +313,11 @@ Nessuna pubblicità, nessun tracciamento e nessuna raccolta dati. Tutto funziona
 Come blocco note quotidiano o come affidabile editor di codice, speriamo che miu renda più piacevole il tuo tempo dedicato alla scrittura."""
 
 IT_WHATS_NEW = """Grazie per aver scelto miu.
-La versione 1.0.49 risolve un blocco nell’a capo automatico dei diagrammi Mermaid con parentesi a larghezza intera e migliora il rendering multilingua in tutti i 33 tipi di diagrammi:
+La versione 1.0.51 potenzia la sicurezza offline dell’Anteprima dal vivo, la precisione della sintassi e dei diagrammi Mermaid e l’affidabilità del salvataggio:
 
-• Correzione dell’a capo nei diagrammi Mermaid: risolto un problema per cui le etichette con testo giapponese, coreano o cinese e parentesi a larghezza intera (come （1）, 【1】, 「1」) potevano rallentare o bloccare l’anteprima.
-• Analisi UTF-8 multi-byte migliorata in tutti i 33 tipi di diagrammi Mermaid: gestione precisa dei caratteri multi-byte in etichette, titoli e stile grassetto/corsivo.
-• Modifica rapida, ricerca Regex precisa e anteprima live per Markdown, LaTeX e Mermaid."""
+• Isolamento offline e sicurezza dell’Anteprima: CSP offline rigorosa, blocco delle connessioni esterne, sanificazione HTML/URL, verifica crittografica per le liste di attività, visualizzazione sicura dei file di testo che iniziano con '<' e analisi Markdown veloce.
+• Precisione di sintassi e Mermaid: migliorata la gestione delle triple virgolette Python e dei commenti a blocco nelle 65 categorie di linguaggi, evidenziazione rapida dei blocchi Markdown CRLF aperti e maggiore stabilità per Mermaid (stateDiagram-v2, block-beta).
+• Salvataggio sicuro e affidabilità: salvataggio atomico con rimappatura sicura della memoria, avvisi localizzati di ricaricamento file e manifesto sulla privacy aggiornato."""
 
 PT_DESC = """O miu é um editor de texto e código simples e leve, criado para tornar desde as suas anotações diárias até a escrita em Markdown e a programação muito mais confortáveis.
 
@@ -346,11 +346,11 @@ Sem anúncios, sem rastreamento e sem coleta de dados. Tudo funciona 100% offlin
 Seja como seu bloco de notas do dia a dia ou como um editor de código confiável, esperamos que o miu torne o seu momento de escrever ainda mais agradável."""
 
 PT_WHATS_NEW = """Obrigado por usar o miu.
-A versão 1.0.49 corrige um travamento na quebra de linha de diagramas Mermaid com parênteses de largura total e melhora a renderização multilíngue nos 33 tipos de diagramas:
+A versão 1.0.51 reforça a segurança offline da Pré-visualização ao vivo, aprimora a precisão de sintaxe e diagramas Mermaid e torna o salvamento de arquivos ainda mais seguro:
 
-• Correção da quebra de linha em diagramas Mermaid: resolvido um problema em que rótulos combinando texto em japonês, coreano ou chinês com parênteses de largura total (como （1）, 【1】, 「1」) podiam deixar a pré-visualização lenta ou sem resposta.
-• Análise UTF-8 multibyte aprimorada nos 33 tipos de diagramas Mermaid: processamento preciso de caracteres multibyte em rótulos, títulos e negrito/itálico.
-• Edição rápida, expressões regulares precisas e pré-visualização em tempo real para Markdown, LaTeX e Mermaid."""
+• Isolamento offline e segurança na Pré-visualização: CSP offline rigorosa, bloqueio de conexões externas, sanitização de HTML/URL, verificação criptográfica em listas de tarefas, exibição segura de textos iniciados por '<' e análise rápida de Markdown.
+• Precisão de sintaxe e Mermaid: melhor detecção de aspas triplas em Python e comentários de bloco nas 65 categorias de linguagens, destaque rápido em blocos Markdown CRLF abertos e maior estabilidade em Mermaid (stateDiagram-v2, block-beta).
+• Salvamento seguro e confiabilidade: gravação atômica aprimorada com remapeamento seguro de memória, avisos traduzidos ao recarregar arquivos modificados externamente e manifesto de privacidade atualizado."""
 
 RU_DESC = """miu — это простой и лёгкий текстовый и кодовый редактор, созданный для комфортной работы: от быстрых повседневных заметок и текстов в Markdown до программирования.
 
@@ -379,11 +379,11 @@ RU_DESC = """miu — это простой и лёгкий текстовый и
 В качестве ежедневного блокнота или надёжного редактора кода — надеемся, что miu сделает вашу работу с текстом ещё приятнее."""
 
 RU_WHATS_NEW = """Спасибо, что пользуетесь miu.
-В версии 1.0.49 исправлено зависание при переносе строк в диаграммах Mermaid с полноширинными скобками и улучшена поддержка символов UTF-8 во всех 33 типах диаграмм:
+В версии 1.0.51 усилена офлайн-защита предпросмотра, повышена точность подсветки синтаксиса и диаграмм Mermaid, а также улучшена надёжность сохранения файлов:
 
-• Исправлен перенос строк в диаграммах Mermaid: устранена проблема, из-за которой метки с японским, корейским или китайским текстом и полноширинными скобками (например, （1）, 【1】, 「1」) могли замедлять работу предпросмотра.
-• Улучшена обработка многобайтовых символов UTF-8 во всех 33 типах диаграмм Mermaid: точное отображение меток, заголовков и полужирного/курсивного текста.
-• Быстрое редактирование, точный поиск Regex и живой предпросмотр Markdown, LaTeX и Mermaid."""
+• Офлайн-изоляция и безопасность предпросмотра: строгая политика CSP, блокировка внешних сетевых запросов, очистка HTML/URL, криптографическая проверка чекбоксов задач, безопасное отображение файлов с начальным символом «<» и быстрый разбор Markdown.
+• Точность подсветки синтаксиса и Mermaid: улучшена обработка тройных кавычек Python и блочных комментариев во всех 65 категориях языков, быстрая подсветка незакрытых блоков кода Markdown (CRLF) и стабильность Mermaid (stateDiagram-v2, block-beta).
+• Надёжное сохранение файлов: атомарная запись с безопасным обновлением памяти, локализация уведомления о перезагрузке изменённых файлов и обновлённый манифест конфиденциальности."""
 
 NL_DESC = """miu is een eenvoudige, lichtgewicht tekst- en code-editor waarmee u prettig werkt aan dagelijkse notities, Markdown-documenten en programmeerprojecten.
 
@@ -412,11 +412,11 @@ Geen advertenties, geen tracking en geen gegevensverzameling. Alles werkt 100% o
 Of u miu nu gebruikt als dagelijks notitieblok of als betrouwbare code-editor, we hopen dat het uw schrijfmomenten net wat aangenamer maakt."""
 
 NL_WHATS_NEW = """Bedankt voor het gebruiken van miu.
-Versie 1.0.49 verhelpt het vastlopen bij regelterugloop in Mermaid-diagrammen met volledige-breedte-haakjes en verbetert de UTF-8-weergave in alle 33 diagramtypen:
+Versie 1.0.51 verbetert de offline beveiliging van Live Voorbeeld, verhoogt de nauwkeurigheid van syntaxmarkering en Mermaid-diagrammen en maakt het opslaan van bestanden nog betrouwbaarder:
 
-• Regelterugloop in Mermaid-diagrammen gecorrigeerd: probleem opgelost waarbij labels met Japanse, Koreaanse of Chinese tekst en haakjes over de volledige breedte (zoals （1）, 【1】, 「1」) de voorvertoning konden vertragen of bevriezen.
-• Verbeterde verwerking van multi-byte UTF-8-tekens in alle 33 Mermaid-diagramtypen: nauwkeurige weergave van labels, titels en vet/cursief-opmaak.
-• Snel bewerken, nauwkeurige reguliere expressies en vloeiende live-voorvertoning voor Markdown, LaTeX en Mermaid."""
+• Offline isolatie en beveiliging van Live Voorbeeld: strikte offline CSP, blokkering van externe netwerkverzoeken, HTML/URL-opschoning, cryptografische verificatie voor takenlijsten, veilige weergave van tekstbestanden beginnend met '<' en snelle Markdown-verwerking.
+• Nauwkeurigere syntaxmarkering & Mermaid: verbeterde verwerking van driedubbele aanhalingstekens in Python en blokcommentaar in alle 65 taalcategorieën, snelle markering van ongesloten CRLF Markdown-codeblokken en stabielere Mermaid-diagrammen (stateDiagram-v2, block-beta).
+• Veilig opslaan & betrouwbaarheid: atomair opslaan met veilige geheugenmapping, vertaalde meldingen bij extern gewijzigde bestanden en bijgewerkt privacymanifest."""
 
 SV_DESC = """miu är en enkel och lättviktig text- och kodredigerare som gör allt från dagliga anteckningar till Markdown-skrivande och programmering bekvämt och smidigt.
 
@@ -445,11 +445,11 @@ Inga annonser, ingen spårning och ingen datainsamling. Allt fungerar 100 % offl
 Som dagligt anteckningsblock eller pålitlig kodredigerare – vi hoppas att miu gör din skrivstund lite trevligare."""
 
 SV_WHATS_NEW = """Tack för att du använder miu.
-Version 1.0.49 åtgärdar frysning vid radbrytning i Mermaid-diagram med helbreddsparenteser och förbättrar UTF-8-renderingen i alla 33 diagramtyper:
+Version 1.0.51 stärker offlinesäkerheten i Live-förhandsgranskning, förbättrar precisionen i syntaxmarkering och Mermaid-diagram samt gör filsparning ännu tryggare:
 
-• Åtgärdad radbrytning i Mermaid-diagram: löste ett problem där etiketter med japansk, koreansk eller kinesisk text och helbreddsparenteser (t.ex. （1）, 【1】, 「1」) kunde göra förhandsvisningen långsam eller sluta svara.
-• Förbättrad tolkning av flerbytes UTF-8-tecken i alla 33 Mermaid-diagramtyper: korrekt hantering av etiketter, rubriker och fet/kursiv stil.
-• Snabb redigering, exakta reguljära uttryck och smidig förhandsvisning för Markdown, LaTeX och Mermaid."""
+• Offlineisolering och säkerhet i förhandsgranskningen: strikt offline-CSP, blockering av externa nätverksanrop, HTML/URL-sanering, kryptografisk kontroll för uppgiftslistor, säker visning av textfiler som börjar med '<' och snabb Markdown-tolkning.
+• Högre precision i syntax och Mermaid: bättre hantering av trippelcitat i Python och blockkommentarer i alla 65 språkkategorier, snabb markering av oavslutade CRLF Markdown-kodblock och stabilare Mermaid-diagram (stateDiagram-v2, block-beta).
+• Säker filsparning och tillförlitlighet: atomär sparning med säker minnesmappning, översatta omladdningsdialoger vid externa filändringar och uppdaterat integritetsmanifest."""
 
 DA_DESC = """miu er en enkel og let tekst- og kodeeditor, der gør alt fra daglige noter til Markdown-skrivning og programmering behageligt og ubesværet.
 
@@ -478,11 +478,11 @@ Ingen reklamer, ingen sporing og ingen dataindsamling. Alt fungerer 100 % offlin
 Uanset om du bruger miu som daglig notesblok eller som kodeeditor, håber vi, at den gør din skrivetid lidt mere behagelig."""
 
 DA_WHATS_NEW = """Tak fordi du bruger miu.
-Version 1.0.49 retter frysning ved linjeskift i Mermaid-diagrammer med fuldbreddeparenteser og forbedrer UTF-8-gengivelsen i alle 33 diagramtyper:
+Version 1.0.51 styrker offlinesikkerheden i Live-forhåndsvisning, forbedrer præcisionen i syntaksfremhævning og Mermaid-diagrammer og gør fillagring endnu mere sikker:
 
-• Rettet linjeskift i Mermaid-diagrammer: løst et problem, hvor etiketter med japansk, koreansk eller kinesisk tekst og fuldbreddeparenteser (f.eks. （1）, 【1】, 「1」) kunne gøre forhåndsvisningen langsom eller få den til at stoppe.
-• Forbedret fortolkning af multi-byte UTF-8-tegn i alle 33 Mermaid-diagramtyper: præcis visning af etiketter, titler og fed/kursiv formatering.
-• Hurtig redigering, præcise regulære udtryk og flydende live-forhåndsvisning af Markdown, LaTeX og Mermaid."""
+• Offlineisolering og sikkerhed i forhåndsvisning: striks offline-CSP, blokering af eksterne netværkskald, HTML/URL-rensning, kryptografisk kontrol af opgavelister, sikker visning af tekstfiler der starter med '<' og hurtig Markdown-analyse.
+• Præcision i syntaks og Mermaid: forbedret håndtering af tredobbelte anførselstegn i Python og blokkommentarer i alle 65 sprogkategorier, hurtig fremhævning af uafsluttede CRLF Markdown-kodeblokke samt mere stabile Mermaid-diagrammer (stateDiagram-v2, block-beta).
+• Sikker lagring og pålidelighed: atomisk fillagring med sikker hukommelsesmapning, oversatte genindlæsningsbeskeder og opdateret privatlivsmanifest."""
 
 NO_DESC = """miu er et enkelt og lett tekst- og koderedigeringsprogram som gjør alt fra daglige notater til Markdown-skriving og programmering behagelig og uanstrengt.
 
@@ -511,11 +511,11 @@ Ingen reklame, ingen sporing og ingen datainnsamling. Alt fungerer 100 % offline
 Enten du bruker miu som daglig notisblokk eller som en pålitelig kodeeditor, håper vi den gjør skrivetiden din litt hyggeligere."""
 
 NO_WHATS_NEW = """Takk for at du bruker miu.
-Versjon 1.0.49 retter frysing ved linjebryting i Mermaid-diagrammer med fullbreddeparenteser og forbedrer UTF-8-visningen i alle 33 diagramtyper:
+Versjon 1.0.51 styrker offlinesikkerheten i direkte forhåndsvisning, gir høyere presisjon i syntaksutheving og Mermaid-diagrammer og gjør fillagring enda tryggere:
 
-• Rettet linjebryting i Mermaid-diagrammer: løst et problem der etiketter med japansk, koreansk eller kinesisk tekst og fullbreddeparenteser (f.eks. （1）, 【1】, 「1」) kunne gjøre forhåndsvisningen treg eller få den til å slutte å svare.
-• Forbedret tolkning av flerbytes UTF-8-tegn i alle 33 Mermaid-diagramtyper: nøyaktig visning av etiketter, titler og fet/kursiv formatering.
-• Rask redigering, presise regulære uttrykk og jevn sanntidsvisning for Markdown, LaTeX og Mermaid."""
+• Offlineisolering og sikkerhet i forhåndsvisning: streng offline-CSP, blokkering av eksterne nettverkskall, HTML/URL-rensing, kryptografisk bekreftelse for oppgavelister, trygg visning av tekstfiler som starter med «<» og rask Markdown-analyse.
+• Presisjon i syntaks og Mermaid: bedre håndtering av trippelanførselstegn i Python og blokkommentarer i alle 65 språkkategorier, rask utheving av uavsluttede CRLF Markdown-kodeblokker og mer stabile Mermaid-diagrammer (stateDiagram-v2, block-beta).
+• Trygg lagring og pålitelighet: atomisk fillagring med sikker minnekartlegging, oversatte varsler ved eksterne filendringer og oppdatert personvernmanifest."""
 
 FI_DESC = """miu on yksinkertainen ja kevyt teksti- ja koodieditori, joka tekee päivittäisistä muistiinpanoista, Markdown-kirjoittamisesta ja ohjelmoinnista miellyttävää ja vaivatonta.
 
@@ -544,11 +544,11 @@ Ei mainoksia, ei seurantaa eikä tiedonkeruuta. Kaikki toimii 100 % offline-tila
 Käytitpä miuta päivittäisenä muistiona tai luotettavana koodieditorina, toivomme sen tekevän kirjoitushetkistäsi hieman mukavampia."""
 
 FI_WHATS_NEW = """Kiitos, että käytät miuta.
-Versio 1.0.49 korjaa Mermaid-kaavioiden rivityksen jumiutumisen täyden leveyden sulkeita käytettäessä ja parantaa UTF-8-tukea kaikissa 33 kaaviotyypissä:
+Versio 1.0.51 vahvistaa reaaliaikaisen esikatselun offline-tietoturvaa, parantaa syntaksin korostuksen ja Mermaid-kaavioiden tarkkuutta sekä tekee tallennuksesta entistä luotettavampaa:
 
-• Korjattu Mermaid-kaavioiden rivitys: ratkaistu ongelma, jossa japanin-, korean- tai kiinankielistä tekstiä ja täyden leveyden sulkeita (kuten （1）, 【1】, 「1」) yhdistävät otsikot saattoivat hidastaa tai pysäyttää esikatselun.
-• Parannettu monitavuisten UTF-8-merkkien käsittely kaikissa 33 Mermaid-kaaviotyypissä: otsikot ja lihavoitu/kursivoitu teksti piirtyvät tarkasti.
-• Nopea muokkaus, tarkat säännölliset lausekkeet ja sulava Markdown-, LaTeX- ja Mermaid-esikatselu."""
+• Esikatselun offline-eristys ja tietoturva: tiukka offline-CSP, ulkoisten verkkopyyntöjen esto, HTML/URL-puhdistus, tehtävälistojen kryptografinen varmennus, '<'-merkillä alkavien tekstitiedostojen turvallinen näyttö ja nopea Markdown-jäsennys.
+• Syntaksin ja Mermaid-kaavioiden tarkkuus: parannettu Pythonin kolmoislainausmerkkien ja lohkokommenttien käsittely kaikissa 65 kielikategoriassa, sulkemattomien CRLF Markdown -koodilohkojen nopea korostus ja vakaammat Mermaid-kaaviot (stateDiagram-v2, block-beta).
+• Turvallinen tallennus: atominen tiedostotallennus turvallisella muistikuvauksella, lokalisoidut uudelleenlatausilmoitukset ja päivitetty tietosuojamanifesti."""
 
 PL_DESC = """miu to prosty, lekki edytor tekstu i kodu, zaprojektowany tak, aby codzienne notatki, pisanie w Markdown oraz programowanie były wygodne i przyjemne.
 
@@ -577,11 +577,11 @@ Brak reklam, brak śledzenia i brak gromadzenia danych. Wszystko działa w 100% 
 Zarówno jako codzienny notatnik, jak i niezawodny edytor kodu – mamy nadzieję, że miu uprzyjemni Twój czas spędzony na pisaniu."""
 
 PL_WHATS_NEW = """Dziękujemy za korzystanie z aplikacji miu.
-Wersja 1.0.49 naprawia zawieszanie się zawijania wierszy w diagramach Mermaid z nawiasami pełnej szerokości i ulepsza obsługę znaków UTF-8 we wszystkich 33 typach diagramów:
+Wersja 1.0.51 wzmacnia bezpieczeństwo offline podglądu na żywo, zwiększa precyzję kolorowania składni i diagramów Mermaid oraz poprawia bezpieczeństwo zapisu plików:
 
-• Naprawiono zawijanie tekstu w diagramach Mermaid: rozwiązano problem, przez który etykiety łączące tekst japoński, koreański lub chiński z nawiasami pełnej szerokości (np. （1）, 【1】, 「1」) mogły powodować brak odpowiedzi podglądu.
-• Ulepszona analiza znaków UTF-8 we wszystkich 33 typach diagramów Mermaid: dokładne wyświetlanie etykiet, tytułów oraz pogrubienia/kursywy.
-• Szybka edycja, dokładne wyrażenia regularne i podgląd na żywo dla Markdown, LaTeX oraz Mermaid."""
+• Izolacja offline i bezpieczeństwo podglądu: ścisła polityka CSP offline, blokada połączeń zewnętrznych, oczyszczanie HTML/URL, kryptograficzna weryfikacja list zadań, bezpieczne wyświetlanie plików tekstowych zaczynających się od „<” oraz szybkie parsowanie Markdown.
+• Precyzja składni i diagramów Mermaid: ulepszona obsługa potrójnych cudzysłowów Pythona i komentarzy blokowych w 65 kategoriach języków, szybkie kolorowanie niezamkniętych bloków kodu Markdown (CRLF) oraz stabilność Mermaid (stateDiagram-v2, block-beta).
+• Bezpieczny zapis i niezawodność: zapis atomowy z bezpiecznym mapowaniem pamięci, przetłumaczone komunikaty przeładowania zmodyfikowanych plików i manifest prywatności."""
 
 CS_DESC = """miu je jednoduchý a lehký textový a kódový editor, se kterým je psaní každodenních poznámek, textů v Markdownu i programování pohodlné a příjemné.
 
@@ -610,11 +610,11 @@ Hledání a nahrazování (s regulárními výrazy), více kurzorů, čísla ř�
 Ať už miu používáte jako každodenní zápisník nebo jako spolehlivý editor kódu, věříme, že vám zpříjemní každou chvíli u psaní."""
 
 CS_WHATS_NEW = """Děkujeme, že používáte miu.
-Verze 1.0.49 opravuje zamrzání při zalamování řádků v diagramech Mermaid s plnošířkovými závorkami a vylepšuje podporu UTF-8 ve všech 33 typech diagramů:
+Verze 1.0.51 posiluje offline zabezpečení živého náhledu, zpřesňuje zvýrazňování syntaxe i diagramy Mermaid a zvyšuje spolehlivost ukládání souborů:
 
-• Opraveno zalamování štítků v diagramech Mermaid: vyřešen problém, kdy štítky s japonským, korejským nebo čínským textem a závorkami s plnou šířkou (např. （1）, 【1】, 「1」) mohly zpomalit nebo zastavit živý náhled.
-• Vylepšené zpracování vícebajtových znaků UTF-8 ve všech 33 typech diagramů Mermaid: přesné vykreslování štítků, názvů a tučného/kurzívního písma.
-• Rychlé úpravy, přesné regulární výrazy a plynulý živý náhled pro Markdown, LaTeX a Mermaid."""
+• Offline izolace a zabezpečení náhledu: přísná offline politika CSP, blokování externích síťových požadavků, čištění HTML/URL, kryptografické ověření seznamů úkolů, bezpečné zobrazení textových souborů začínajících znakem „<“ a rychlé zpracování Markdownu.
+• Přesnost syntaxe a Mermaid: vylepšené zpracování trojitých uvozovek v Pythonu a blokových komentářů v 65 kategoriích jazyků, rychlé zvýrazňování neuzavřených bloků kódu Markdown (CRLF) a stabilita Mermaid (stateDiagram-v2, block-beta).
+• Bezpečné ukládání: atomické ukládání s bezpečným přemapováním paměti, lokalizované výzvy k opětovnému načtení změněných souborů a manifest soukromí."""
 
 HU_DESC = """A miu egy egyszerű, könnyed szöveg- és kódszerkesztő, amely a napi gyors jegyzeteléstől a Markdown-szövegíráson át a programozásig minden helyzetben kényelmes használatot nyújt.
 
@@ -643,11 +643,11 @@ Nincsenek reklámok, nincs követés és nincs adatgyűjtés. Minden funkció 10
 Akár mindennapi jegyzettömbként, akár megbízható kódszerkesztőként használja, reméljük, hogy a miu kellemesebbé teszi az írással töltött időt."""
 
 HU_WHATS_NEW = """Köszönjük, hogy a miu alkalmazást használja.
-Az 1.0.49-es verzió javítja a Mermaid diagramok sortörési lefagyását teljes szélességű zárójelek esetén, és fejleszti az UTF-8 karakterkezelést mind a 33 diagramtípusban:
+Az 1.0.51-es verzió erősíti az Élő előnézet offline biztonságát, növeli a szintaxiskiemelés és a Mermaid-diagramok pontosságát, valamint még biztonságosabbá teszi a fájlmentést:
 
-• Mermaid diagram sortörési javítás: megoldottuk azt a hibát, amelynél a japán, koreai vagy kínai szöveget teljes szélességű zárójelekkel (pl. （1）, 【1】, 「1」) kombináló címkék megállíthatták az előnézetet.
-• Továbbfejlesztett többbájtos UTF-8 karakterfeldolgozás mind a 33 Mermaid diagramtípusban: pontos címke-, cím- és félkövér/dőlt megjelenítés.
-• Gyors szerkesztés, pontos reguláris kifejezések és folyamatos Markdown, LaTeX és Mermaid élő előnézet."""
+• Offline elszigetelés és biztonság az előnézetben: szigorú offline CSP, külső hálózati kérések tiltása, HTML/URL-tisztítás, kriptográfiai ellenőrzés a feladatlistákhoz, a „<” jellel kezdődő szövegfájlok biztonságos megjelenítése és gyors Markdown-elemzés.
+• Szintaxis és Mermaid pontosság: fejlesztett Python tripla idézőjel- és blokk-komment-kezelés mind a 65 nyelvi kategóriában, lezáratlan CRLF Markdown-kódblokkok gyors kiemelése és stabilabb Mermaid (stateDiagram-v2, block-beta) megjelenítés.
+• Biztonságos fájlmentés: atomi mentés biztonságos memórialeképezéssel, honosított újratöltési értesítések és adatvédelmi jegyzék."""
 
 RO_DESC = """miu este un editor de text și cod simplu și ușor, creat pentru ca notițele zilnice, redactarea în Markdown și programarea să fie cât mai plăcute și confortabile.
 
@@ -676,11 +676,11 @@ Fără reclame, fără urmărire și fără colectare de date. Totul funcționea
 Fie ca agendă de zi cu zi, fie ca editor de cod de încredere, sperăm că miu vă va face timpul petrecut scriind mai plăcut."""
 
 RO_WHATS_NEW = """Vă mulțumim că folosiți miu.
-Versiunea 1.0.49 rezolvă blocarea la încadrarea liniilor în diagramele Mermaid cu paranteze cu lățime completă și îmbunătățește randarea UTF-8 în toate cele 33 de tipuri de diagrame:
+Versiunea 1.0.51 consolidează securitatea offline a Previzualizării live, crește precizia evidențierii sintaxei și a diagramelor Mermaid și îmbunătățește siguranța salvării fișierelor:
 
-• Corecție pentru încadrarea liniilor în diagramele Mermaid: etichetele care combină text japonez, coreean sau chinez cu paranteze cu lățime completă (precum （1）, 【1】, 「1」) sunt afișate instantaneu fără încetiniri.
-• Analiză UTF-8 multi-byte îmbunătățită în toate cele 33 de tipuri de diagrame Mermaid: afișare precisă a etichetelor, titlurilor și stilului aldin/cursiv.
-• Editare rapidă, expresii regulate precise și previzualizare în timp real pentru Markdown, LaTeX și Mermaid."""
+• Izolare offline și securitate în Previzualizare: politică CSP offline strictă, blocarea conexiunilor externe, igienizare HTML/URL, verificare criptografică pentru listele de sarcini, afișare sigură a fișierelor text care încep cu „<” și analiză rapidă Markdown.
+• Precizie în sintaxă și Mermaid: analiză îmbunătățită a ghilimelelor triple Python și a comentariilor bloc în cele 65 de categorii de limbaje, evidențiere rapidă a blocurilor Markdown CRLF neînchise și stabilitate în Mermaid (stateDiagram-v2, block-beta).
+• Salvare sigură: salvare atomică cu remapare sigură a memoriei, mesaje traduse pentru reîncărcarea fișierelor modificate extern și manifest de confidențialitate."""
 
 EL_DESC = """Το miu είναι ένας απλός και ελαφρύς επεξεργαστής κειμένου και κώδικα, σχεδιασμένος ώστε οι καθημερινές σημειώσεις, η συγγραφή σε Markdown και ο προγραμματισμός να γίνονται άνετα και ευχάριστα.
 
@@ -709,11 +709,11 @@ EL_DESC = """Το miu είναι ένας απλός και ελαφρύς επ�
 Είτε ως καθημερινό σημειωματάριο είτε ως αξιόπιστος επεξεργαστής κώδικα, ελπίζουμε το miu να κάνει τον χρόνο που αφιερώνετε στο γράψιμο πιο ευχάριστο."""
 
 EL_WHATS_NEW = """Σας ευχαριστούμε που χρησιμοποιείτε το miu.
-Η έκδοση 1.0.49 διορθώνει το πάγωμα αναδίπλωσης γραμμών σε διαγράμματα Mermaid με παρενθέσεις πλήρους πλάτους και βελτιώνει την απόδοση UTF-8 στους 33 τύπους διαγραμμάτων:
+Η έκδοση 1.0.51 ενισχύει την ασφάλεια εκτός σύνδεσης της Ζωντανής προεπισκόπησης, βελτιώνει την ακρίβεια επισήμανσης σύνταξης και διαγραμμάτων Mermaid και αναβαθμίζει την ασφάλεια αποθήκευσης:
 
-• Διόρθωση αναδίπλωσης γραμμών σε διαγράμματα Mermaid: επιλύθηκε ζήτημα όπου ετικέτες με ιαπωνικό, κορεατικό ή κινεζικό κείμενο και παρενθέσεις πλήρους πλάτους (π.χ. （1）, 【1】, 「1」) επιβράδυναν την προεπισκόπηση.
-• Βελτιωμένη ανάλυση χαρακτήρων UTF-8 πολλαπλών byte και στους 33 τύπους διαγραμμάτων Mermaid: ακριβής απόδοση ετικετών, τίτλων και έντονης/πλάγιας γραφής.
-• Γρήγορη επεξεργασία, ακριβείς εκφράσεις Regex και ζωντανή προεπισκόπηση Markdown, LaTeX & Mermaid."""
+• Απομόνωση εκτός σύνδεσης & ασφάλεια προεπισκόπησης: αυστηρή πολιτική CSP εκτός σύνδεσης, φραγή εξωτερικών συνδέσεων, καθαρισμός HTML/URL, κρυπτογραφική επαλήθευση λιστών εργασιών, ασφαλής εμφάνιση αρχείων που ξεκινούν με «<» και γρήγορη ανάλυση Markdown.
+• Ακρίβεια σύνταξης & Mermaid: βελτιωμένη αναγνώριση τριπλών εισαγωγικών Python και σχολίων μπλοκ στις 65 κατηγορίες γλωσσών, γρήγορη επισήμανση ανοιχτών μπλοκ Markdown (CRLF) και σταθερότητα Mermaid (stateDiagram-v2, block-beta).
+• Ασφαλής αποθήκευση: ατομική εγγραφή αρχείων με ασφαλή αντιστοίχιση μνήμης, μεταφρασμένες ειδοποιήσεις επαναφόρτωσης και ενημερωμένο μανιφέστο απορρήτου."""
 
 TR_DESC = """miu; günlük kısa notlardan Markdown yazılarına ve programlamaya kadar her türlü metin çalışmasını keyifli ve rahat hale getirmek için tasarlanmış sade ve hafif bir metin ve kod düzenleyicidir.
 
@@ -742,11 +742,11 @@ Reklam, takip veya veri toplama yoktur. Tüm özellikler cihazınızda %100 çev
 İster günlük not defteriniz ister güvenilir kod düzenleyiciniz olarak, miu'nun yazma zamanınızı daha keyifli hale getirmesini dileriz."""
 
 TR_WHATS_NEW = """miu'yu kullandığınız için teşekkür ederiz.
-1.0.49 sürümü, tam genişlikli parantezler içeren Mermaid diyagram etiketlerinde satır kaydırma donmasını giderir ve 33 diyagram türünün tamamında UTF-8 desteğini geliştirir:
+1.0.51 sürümü, Canlı Önizleme için çevrimdışı güvenliği güçlendirir, sözdizimi vurgulama ile Mermaid diyagramlarının hassasiyetini artırır ve dosya kaydetme güvenilirliğini iyileştirir:
 
-• Mermaid Diyagramlarında Satır Kaydırma Düzeltmesi: Japonca, Korece veya Çince metinleri tam genişlikli parantezlerle (ör. （1）, 【1】, 「1」) birleştiren etiketlerde oluşan yavaşlama ve yanıt vermeme sorunu çözüldü.
-• Tüm 33 Mermaid Diyagram Türünde Çok Baytlı UTF-8 Karakter Desteği: Etiketlerde, başlıklarda ve kalın/italik biçimlendirmede çok baytlı karakterler doğru şekilde işlenir.
-• Hızlı düzenleme, doğru Regex eşleşmesi ve akıcı Markdown, LaTeX ve Mermaid Canlı Önizlemesi."""
+• Canlı Önizleme Çevrimdışı Güvenliği: sıkı çevrimdışı CSP, dış ağ erişimi engelleme, HTML/URL temizleme, görev listeleri için kriptografik doğrulama, '<' ile başlayan metin dosyalarının güvenli gösterimi ve hızlı Markdown ayrıştırma.
+• Sözdizimi ve Mermaid Hassasiyeti: 65 dil kategorisinde Python üçlü tırnak ve blok yorum analizi, kapatılmamış CRLF Markdown kod bloklarında hızlı vurgulama ve Mermaid (stateDiagram-v2, block-beta) kararlılığı.
+• Güvenli Dosya Kaydetme: güvenli bellek eşlemeli atomik dosya kaydetme, dış değişikliklerde yerelleştirilmiş yeniden yükleme bildirimleri ve gizlilik bildirimi desteği."""
 
 UK_DESC = """miu — це простий і легкий редактор тексту та коду, створений для того, щоб щоденні нотатки, написання текстів у Markdown і програмування були максимально зручними та приємними.
 
@@ -775,11 +775,11 @@ UK_DESC = """miu — це простий і легкий редактор тек
 Як щоденний записник або надійний редактор коду — сподіваємося, що miu зробить ваш час за письмом приємнішим."""
 
 UK_WHATS_NEW = """Дякуємо, що користуєтеся miu.
-У версії 1.0.49 виправлено зависання під час перенесення рядків у діаграмах Mermaid із повноширинними дужками та покращено обробку UTF-8 в усіх 33 типах діаграм:
+У версії 1.0.51 посилено офлайн-безпеку перегляду наживо, підвищено точність підсвічування синтаксису та діаграм Mermaid, а також покращено надійність збереження файлів:
 
-• Виправлено перенесення рядків у діаграмах Mermaid: усунено проблему, через яку мітки з японським, корейським або китайським текстом і повноширинними дужками (наприклад, （1）, 【1】, 「1」) могли сповільнювати перегляд.
-• Покращено обробку багатобайтових символів UTF-8 в усіх 33 типах діаграм Mermaid: точне відображення міток, заголовків і жирного/курсивного тексту.
-• Швидке редагування, точний пошук Regex і живий перегляд Markdown, LaTeX і Mermaid."""
+• Офлайн-ізоляція та безпека перегляду: сувора політика CSP, блокування зовнішніх мережевих запитів, очищення HTML/URL, криптографічна перевірка списків завдань, безпечне відображення текстових файлів із початковим «<» та швидкий розбір Markdown.
+• Точність синтаксису та Mermaid: покращено розбір потрійних лапок Python і блокових коментарів у 65 категоріях мов, швидке підсвічування незакритих блоків Markdown (CRLF) і стабільність Mermaid (stateDiagram-v2, block-beta).
+• Надійне збереження: атомарний запис із безпечним оновленням пам’яті, локалізовані сповіщення про перезавантаження змінених файлів і маніфест конфіденційності."""
 
 VI_DESC = """miu là trình soạn thảo văn bản và mã nguồn đơn giản, gọn nhẹ, mang lại cảm giác thoải mái cho mọi nhu cầu từ ghi chú nhanh hàng ngày, viết tài liệu Markdown cho đến lập trình.
 
@@ -808,11 +808,11 @@ Không quảng cáo, không theo dõi và không thu thập dữ liệu. Mọi t
 Dù dùng làm sổ tay hàng ngày hay trình sửa code đáng tin cậy, hy vọng miu sẽ giúp khoảng thời gian viết lách của bạn thêm phần dễ chịu."""
 
 VI_WHATS_NEW = """Cảm ơn bạn đã luôn sử dụng miu.
-Phiên bản 1.0.49 khắc phục lỗi treo khi ngắt dòng nhãn biểu đồ Mermaid có dấu ngoặc toàn giác và cải thiện hiển thị UTF-8 trên toàn bộ 33 loại biểu đồ:
+Phiên bản 1.0.51 tăng cường bảo mật ngoại tuyến cho Xem trước trực tiếp, nâng cao độ chính xác tô sáng cú pháp & sơ đồ Mermaid, đồng thời cải thiện độ an toàn khi lưu tệp:
 
-• Sửa lỗi ngắt dòng biểu đồ Mermaid với dấu ngoặc toàn giác: Đã khắc phục lỗi khi nhãn kết hợp chữ tiếng Nhật, Hàn, Trung với dấu ngoặc toàn giác (như （1）, 【1】, 「1」) khiến xem trước bị chậm hoặc ngừng phản hồi.
-• Cải thiện phân tích ký tự UTF-8 nhiều byte trên 33 loại biểu đồ Mermaid: Hiển thị chính xác nhãn, tiêu đề và chữ đậm/nghiêng.
-• Chỉnh sửa tốc độ cao, Tìm/Thay thế Regex chính xác và Xem trước trực tiếp Markdown, LaTeX & Mermaid."""
+• Cô lập ngoại tuyến & bảo mật Xem trước: áp dụng CSP ngoại tuyến nghiêm ngặt, chặn kết nối mạng bên ngoài, làm sạch HTML/URL, xác thực mật mã cho danh sách công việc, hiển thị an toàn tệp văn bản bắt đầu bằng '<' và phân tích Markdown nhanh.
+• Độ chính xác cú pháp & Mermaid: cải thiện xử lý chuỗi ba dấu nháy Python và chú thích khối trên 65 nhóm ngôn ngữ, tô sáng nhanh khối mã Markdown CRLF chưa đóng và tăng độ ổn định Mermaid (stateDiagram-v2, block-beta).
+• Lưu tệp an toàn: lưu nguyên tử với ánh xạ bộ nhớ an toàn, bản địa hóa thông báo tải lại tệp thay đổi bên ngoài và bổ sung kê khai quyền riêng tư."""
 
 TH_DESC = """miu คือแอปแก้ไขข้อความและโค้ดที่เรียบง่ายและทำงานได้อย่างรวดเร็ว ออกแบบมาเพื่อให้ทั้งการจดบันทึกประจำวัน การเขียนบทความด้วย Markdown และการเขียนโปรแกรมเป็นเรื่องที่สบายตาและน่าใช้งาน
 
@@ -841,11 +841,11 @@ TH_DESC = """miu คือแอปแก้ไขข้อความและ
 ไม่ว่าจะใช้เป็นสมุดโน้ตประจำวันหรือเครื่องมือเขียนโค้ดคู่ใจ เราหวังว่า miu จะช่วยให้ช่วงเวลาแห่งการเขียนของคุณน่าเพลิดเพลินยิ่งขึ้น"""
 
 TH_WHATS_NEW = """ขอบคุณที่ใช้บริการ miu เสมอมา
-ในเวอร์ชัน 1.0.49 เราได้แก้ไขปัญหาค้างเมื่อตัดบรรทัดป้ายกำกับแผนภาพ Mermaid ที่มีวงเล็บแบบเต็มความกว้าง และปรับปรุงการแสดงผล UTF-8 ในแผนภาพทั้ง 33 ประเภท:
+ในเวอร์ชัน 1.0.51 เราได้ยกระดับความปลอดภัยแบบออฟไลน์ของพรีวิวสด เพิ่มความแม่นยำของการเน้นไวยากรณ์และแผนภาพ Mermaid รวมถึงปรับปรุงการบันทึกไฟล์ให้ปลอดภัยยิ่งขึ้น:
 
-• แก้ไขการตัดบรรทัดในแผนภาพ Mermaid: แก้ไขปัญหาเมื่อป้ายกำกับโหนดที่มีข้อความภาษาญี่ปุ่น เกาหลี หรือจีน ร่วมกับวงเล็บแบบเต็มความกว้าง (เช่น （1）, 【1】, 「1」) ทำให้พรีวิวช้าลงหรือหยุดตอบสนอง
-• ปรับปรุงการประมวลผลอักขระ UTF-8 แบบหลายไบต์ในแผนภาพ Mermaid ทั้ง 33 ประเภท: แสดงป้ายกำกับ ชื่อเรื่อง และตัวหนา/ตัวเอียงได้อย่างถูกต้อง
-• แก้ไขข้อความรวดเร็ว ค้นหา/แทนที่ด้วย Regex แม่นยำ พร้อมพรีวิวสด Markdown, LaTeX และ Mermaid"""
+• การแยกการทำงานแบบออฟไลน์และความปลอดภัยของพรีวิว: ใช้ CSP แบบออฟไลน์ที่เข้มงวด บล็อกการเชื่อมต่อภายนอก คัดกรอง HTML/URL ตรวจสอบโทเค็นเข้ารหัสสำหรับรายการงาน แสดงไฟล์ข้อความที่ขึ้นต้นด้วย '<' อย่างปลอดภัย และประมวลผล Markdown อย่างรวดเร็ว
+• ความแม่นยำของไวยากรณ์และ Mermaid: ปรับปรุงการวิเคราะห์อัญประกาศสามชั้นของ Python และความคิดเห็นบล็อกใน 65 หมวดหมู่ภาษา ไฮไลต์บล็อกโค้ด Markdown (CRLF) ที่ยังไม่ปิดอย่างรวดเร็ว และเพิ่มความเสถียรของ Mermaid (stateDiagram-v2, block-beta)
+• การบันทึกไฟล์อย่างปลอดภัย: บันทึกไฟล์แบบอะตอมมิกพร้อมอัปเดตหน่วยความจำอย่างปลอดภัย แปลข้อความแจ้งเตือนโหลดซ้ำครบทุกภาษา และรองรับ Privacy Manifest"""
 
 ID_DESC = """miu adalah editor teks dan kode yang sederhana serta ringan, dirancang agar nyaman digunakan mulai dari mencatat ide harian, menulis dokumen Markdown, hingga pemrograman.
 
@@ -874,11 +874,11 @@ Tanpa iklan, tanpa pelacakan, dan tanpa pengumpulan data. Semua fitur berjalan 1
 Baik sebagai buku catatan sehari-hari maupun editor kode andalan, semoga miu dapat membuat waktu menulis Anda menjadi lebih menyenangkan."""
 
 ID_WHATS_NEW = """Terima kasih telah menggunakan miu.
-Versi 1.0.49 memperbaiki masalah macet saat memotong baris label diagram Mermaid dengan tanda kurung lebar penuh dan meningkatkan rendering UTF-8 di 33 jenis diagram:
+Versi 1.0.51 memperkuat keamanan offline Pratinjau Langsung, meningkatkan akurasi penyorotan sintaks dan diagram Mermaid, serta menyempurnakan keandalan penyimpanan file:
 
-• Perbaikan Pemotongan Baris Diagram Mermaid: Mengatasi masalah ketika label yang menggabungkan teks Jepang, Korea, atau Mandarin dengan tanda kurung lebar penuh (seperti （1）, 【1】, 「1」) menyebabkan pratinjau melambat atau berhenti merespons.
-• Peningkatan Penguraian UTF-8 Multibyte di 33 Jenis Diagram Mermaid: Menampilkan label, judul, dan teks tebal/miring secara akurat.
-• Pengeditan cepat, Cari/Ganti Regex akurat, dan Pratinjau Langsung Markdown, LaTeX & Mermaid."""
+• Isolasi Offline & Keamanan Pratinjau: penerapan CSP offline ketat, pemblokiran jaringan eksternal, sanitasi HTML/URL, verifikasi kriptografi daftar tugas, tampilan aman file teks berawalan '<', dan penguraian Markdown cepat.
+• Akurasi Sintaks & Mermaid: perbaikan deteksi tanda kutip tiga Python dan komentar blok di 65 kategori bahasa, penyorotan cepat blok kode Markdown CRLF terbuka, serta stabilitas Mermaid (stateDiagram-v2, block-beta).
+• Penyimpanan File Aman: penyimpanan atomik dengan pemetaan memori aman, pelokalan dialog muat ulang file, dan dukungan manifes privasi."""
 
 MS_DESC = """miu ialah penyunting teks dan kod yang ringkas serta ringan, direka untuk memberikan keselesaan sama ada ketika mencatat nota harian, menulis dokumen Markdown mahupun melakukan pengaturcaraan.
 
@@ -907,11 +907,11 @@ Tiada iklan, tiada penjejakan dan tiada pengumpulan data. Semua ciri berfungsi 1
 Sama ada sebagai buku nota harian atau penyunting kod yang boleh dipercayai, kami berharap miu menjadikan masa menulis anda lebih menyenangkan."""
 
 MS_WHATS_NEW = """Terima kasih kerana menggunakan miu.
-Versi 1.0.49 memperbaiki masalah pegun semasa membalut baris label diagram Mermaid dengan kurungan lebar penuh dan meningkatkan paparan UTF-8 dalam semua 33 jenis diagram:
+Versi 1.0.51 memperkukuh keselamatan luar talian Pratonton Langsung, meningkatkan ketepatan sorotan sintaks dan rajah Mermaid, serta menambah baik keselamatan simpanan fail:
 
-• Pembaikan Pembalutan Baris Diagram Mermaid: Menyelesaikan masalah apabila label yang menggabungkan teks Jepun, Korea atau Cina dengan tanda kurungan lebar penuh (seperti （1）, 【1】, 「1」) menyebabkan pratonton menjadi perlahan atau berhenti bertindak balas.
-• Peningkatan Penghuraian UTF-8 Berbilang Bait dalam 33 Jenis Diagram Mermaid: Memaparkan label, tajuk dan teks tebal/condong dengan tepat.
-• Penyuntingan pantas, Cari/Ganti Regex tepat dan Pratonton Langsung Markdown, LaTeX & Mermaid."""
+• Pengasingan Luar Talian & Keselamatan Pratonton: CSP luar talian ketat, sekatan rangkaian luaran, pembersihan HTML/URL, pengesahan kriptografi senarai tugas, paparan selamat fail teks bermula dengan '<' dan penghuraian Markdown pantas.
+• Ketepatan Sintaks & Mermaid: penambahbaikan petikan tiga kali Python dan komen blok dalam 65 kategori bahasa, sorotan pantas blok kod Markdown CRLF belum ditutup serta kestabilan Mermaid (stateDiagram-v2, block-beta).
+• Simpanan Fail Selamat: simpanan atomik dengan pemetaan memori selamat, penyetempatan mesej muat semula fail dan sokongan manifes privasi."""
 
 HI_DESC = """miu एक सरल और हल्का टेक्स्ट व कोड एडिटर है, जिसे रोज़मर्रा के छोटे नोट्स से लेकर Markdown लेखन और प्रोग्रामिंग तक हर काम को सहज और आरामदायक बनाने के लिए डिज़ाइन किया गया है।
 
@@ -940,11 +940,11 @@ UTF-8, Shift_JIS, EUC-JP, UTF-16 और अन्य एन्कोडिंग
 चाहे आप इसे दैनिक नोटपैड के रूप में उपयोग करें या एक भरोसेमंद कोड एडिटर के रूप में, हमें उम्मीद है कि miu आपके लिखने के समय को और सुखद बनाएगा।"""
 
 HI_WHATS_NEW = """miu का उपयोग करने के लिए धन्यवाद।
-संस्करण 1.0.49 में पूर्ण-चौड़ाई वाले कोष्ठकों के साथ Mermaid डायग्राम लेबल लाइन-रैपिंग की समस्या को ठीक किया गया है और सभी 33 डायग्राम प्रकारों में UTF-8 रेंडरिंग में सुधार किया गया है:
+संस्करण 1.0.51 में लाइव प्रीव्यू की ऑफ़लाइन सुरक्षा को और मजबूत किया गया है, सिंटैक्स हाइलाइटिंग व Mermaid आरेखों की सटीकता बढ़ाई गई है तथा फ़ाइल सेविंग को अधिक सुरक्षित बनाया गया है:
 
-• Mermaid डायग्राम लाइन-रैपिंग सुधार: जापानी, कोरियाई या चीनी पाठ के साथ पूर्ण-चौड़ाई वाले कोष्ठक (जैसे （1）, 【1】, 「1」) होने पर प्रीव्यू के धीमा होने या रुकने की समस्या को ठीक किया गया है।
-• सभी 33 Mermaid डायग्राम प्रकारों में मल्टी-बाइट UTF-8 अक्षर पार्सिंग में सुधार: लेबल, शीर्षक और बोल्ड/इटैलिक पाठ की सटीक रेंडरिंग।
-• तेज़ संपादन, सटीक रेगेक्स खोज/बदलाव और सहज Markdown, LaTeX व Mermaid लाइव प्रीव्यू।"""
+• लाइव प्रीव्यू ऑफ़लाइन आइसोलेशन और सुरक्षा: सख्त ऑफ़लाइन CSP, बाहरी नेटवर्क अवरोधन, HTML/URL स्वच्छता, टास्क-लिस्ट चेकबॉक्स हेतु क्रिप्टोग्राफ़िक सत्यापन, '<' से शुरू होने वाली टेक्स्ट फ़ाइलों का सुरक्षित प्रदर्शन और तेज़ Markdown पार्सिंग।
+• सिंटैक्स और Mermaid सटीकता: सभी 65 भाषा श्रेणियों में Python ट्रिपल-कोट्स व ब्लॉक कमेंट पहचान में सुधार, अधूरे CRLF Markdown कोड ब्लॉक की तेज़ हाइलाइटिंग और Mermaid (stateDiagram-v2, block-beta) स्थिरता।
+• सुरक्षित फ़ाइल सेविंग: सुरक्षित मेमोरी-मैप अपडेट के साथ एटॉमिक सेविंग, बाहरी बदलाव पर अनूदित रीलोड संदेश और गोपनीयता मैनिफ़ेस्ट समर्थन।"""
 
 SUPPORT_URL = "https://github.com/kenjinote/miu"
 

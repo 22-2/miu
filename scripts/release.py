@@ -221,56 +221,65 @@ def main():
             # Default release notes template
             notes = f"# miu {release_name} リリースノート / Release Notes\n\n" + r"""## 🇯🇵 日本語 (Japanese)
 いつも **miu** をご利用いただきありがとうございます。
-v1.0.49 では、Mermaid 図表プレビューで全角括弧を含む日本語・多言語ラベルを入力した際の動作改善と、全33種類のダイアグラムにおけるマルチバイト文字処理の強化を行いました。
+v1.0.51 では、全プラットフォームにわたる**ライブプレビューの完全オフライン分離・セキュリティ強化**、**全65言語シンタックス＆Mermaid図表エンジンの精度向上**、および**アトミック保存・大容量処理・多言語IME入力の信頼性強化**を実施しました。
 
-### 🛠 主な改善・修正内容
-- **Mermaid 図表プレビューの全角括弧・長文ラベル折り返し処理を修正**:
-  - フローチャート等のノードラベルに日本語・韓国語・中国語などの全角文字と全角括弧（`（1）`、`【1】`、`「1」` など）を組み合わせて入力した際（例：`A[あいうえおかきくけこ（1）]`）、自動折り返し位置の計算で動作が重くなったり停止したりする問題を修正しました。
-- **全33種類の Mermaid ダイアグラムにおける多言語文字の解析を強化**:
-  - 日本語（`だ`・`む`・`場`・`校`・`項` など）や韓国語・中国語・絵文字などの UTF-8 マルチバイト文字が空白文字と誤認されないよう改善し、ラベル・タイトル・設定値・太字／斜体記法がすべての図表で正確に描画されるようになりました。
-- **高速な編集・正規表現一括置換・ライブプレビュー**:
-  - 大容量ファイルの高速編集、全角・多言語対応の正規表現検索・一括置換、Markdown / LaTeX 数式 / Mermaid 図表のリアルタイムプレビューが軽快に動作します。
+### ✨ 主な改善・セキュリティ強化内容
+- **ライブプレビューの完全オフライン分離・セキュリティ強化**:
+  - Markdown / HTML / SVG / Mermaid / LaTeX プレビューに厳格な Content Security Policy（CSP）と外部通信遮断（WebView2 / WKWebView / Android WebView）を適用し、外部リソースへの意図しない通信やスクリプト混入を防止しました。
+  - タスクリストのチェック切替ブリッジに暗号論的ノンス（ワンタイムトークン）検証を導入し、`<` で始まる非 Web テキストファイルの安全なエスケープ表示および長文インライン強調記法の線形時間 `O(N)` パースに対応しました。
+- **シンタックスハイライト＆Mermaid / LaTeX エンジンの精度・安定性向上**:
+  - Python 三重引用符や全65言語のブロックコメント終端解析の精度向上、CRLF 改行を含む未閉鎖 Markdown コードフェンスの高速ハイライト、Prolog `-->` 演算子・Batch `REM` 境界・Rust/F#/Haskell シングルクォート解析を改善しました。
+  - Mermaid `stateDiagram-v2` の複合状態、入れ子 `block-beta`、各種数値チャートの境界値保護と Emmet 展開の上限保護を強化しました。
+- **ファイル保存の安全性（アトミック保存）・大容量処理・多言語入力の改善**:
+  - アトミック保存と安全なメモリマップ（`mmap`）再マッピングにより上書き保存時のデータ保護を強化し、数GBクラスの分割保存に対応しました。
+  - UTF-16 サロゲートペア（絵文字・4バイト文字）の IME 削除精度向上、モノクロ（1-bit）グリフの鮮明な描画、外部変更通知「再読み込み」の多言語対応を改善しました。
 
 ---
 
 ## 🇺🇸 English
 Thank you for using **miu**.
-Version 1.0.49 fixes a freeze when wrapping Mermaid diagram labels containing full-width brackets and CJK characters, and strengthens multi-byte UTF-8 character handling across all 33 Mermaid diagram types.
+Version 1.0.51 delivers comprehensive **Live Preview offline isolation & security hardening**, **syntax highlighting & Mermaid/LaTeX engine precision improvements**, and **atomic file-saving, large-file, and IME input reliability enhancements** across all platforms.
 
-### 🛠 Key Improvements & Fixes
-- **Fixed Mermaid Diagram Line-Wrapping Freeze with Full-Width Brackets**:
-  - Resolved an issue where node labels combining Japanese, Korean, or Chinese text with full-width brackets (such as `（1）`, `【1】`, or `「1」`, e.g., `A[あいうえおかきくけこ（1）]`) could cause the preview to slow down or stop responding during line-wrap calculation.
-- **Improved Multi-Byte UTF-8 Character Parsing Across All 33 Mermaid Diagrams**:
-  - Prevented UTF-8 continuation bytes inside Japanese, Korean, Chinese, and other multi-byte characters from being misinterpreted as whitespace in labels, titles, configuration values, and inline bold/italic formatting.
-- **High-Speed Editing, Multi-Language Regex & Live Preview**:
-  - Smooth editing of large files, accurate Unicode regular expression Find & Replace, and instant offline Markdown, LaTeX & Mermaid Live Preview.
+### ✨ Key Security, Stability & Accuracy Improvements
+- **Live Preview Offline Isolation & Security Hardening**:
+  - Enforced strict offline Content Security Policy (CSP), network request blocking across WebView2 / WKWebView / Android WebView, and HTML tag/URL sanitization so previews remain 100% local and safe.
+  - Added per-session cryptographic nonce verification for task-list checkbox toggling, safe `<pre>` escaping for non-Web text files starting with `<`, and linear-time `O(N)` inline Markdown emphasis parsing.
+- **Syntax Highlighting & Mermaid / LaTeX Engine Precision**:
+  - Improved Python triple-quoted string and block-comment delimiter progression across all 65 language categories, linear-time highlighting for unclosed CRLF Markdown code fences, Prolog `-->` operator & Batch `REM` word-boundary accuracy, and Rust/F#/Haskell single-quote lifetimes/identifiers.
+  - Hardened Mermaid `stateDiagram-v2` composite states, nested `block-beta` layouts, numeric chart edge-case guards, and Emmet expansion caps.
+- **Atomic File Saving, Large-File Reliability & Input Enhancements**:
+  - Added atomic file saving with safe `mmap` remapping to protect files during saves, plus chunked multi-GB file writing on Windows.
+  - Fixed UTF-16 surrogate-pair (emoji & 4-byte character) IME deletion, improved 1-bit monochrome font glyph rendering, and localized external file modification reload prompts.
 
 ---
 
 ## 🇨🇳 简体中文 (Simplified Chinese)
 感谢您使用 **miu**。
-v1.0.49 修复了 Mermaid 图表预览中包含全角括号的中日韩标签在自动换行时可能出现卡顿或无响应的问题，并全面强化了 33 种图表的 UTF-8 多字节字符解析。
+v1.0.51 全面强化了**实时预览的离线隔离与安全防护**、**65 种语言语法高亮与 Mermaid/LaTeX 引擎精度**，并提升了**原子化文件保存、超大文件读写与多语言输入法（IME）稳定性**。
 
-- **修复 Mermaid 图表全角括号与长文本自动换行卡顿问题**：修复了在流程图等节点标签中同时使用中文、日文、韩文与全角括号（如 `（1）`、`【1】`、`「1」` 等）时，自动换行计算可能导致预览变慢或停止响应的问题。
-- **强化全部 33 种 Mermaid 图表的多语言字符解析**：修复了部分 UTF-8 多字节字符在标签、标题、配置项及粗体/斜体语法中被误判为空白字符的问题，确保所有图表准确渲染。
+- **实时预览完全离线隔离与安全加固**：为 Markdown / HTML / SVG / Mermaid / LaTeX 预览启用严格的离线安全策略（CSP）、拦截外部网络请求、净化 HTML 标签与链接，并为任务列表勾选交互加入加密随机令牌（Nonce）校验，安全转义以 `<` 开头的纯文本文件，实现线性时间 `O(N)` 行内强调解析。
+- **语法高亮与 Mermaid 图表引擎精度提升**：优化 Python 三引号与块注释闭合识别、包含 CRLF 换行的未闭合 Markdown 代码块高速高亮、Prolog `-->` 运算符、Batch `REM` 边界及 Rust/F#/Haskell 单引号解析；增强 Mermaid `stateDiagram-v2` 复合状态、`block-beta` 嵌套与数值图表的渲染稳定性。
+- **原子化安全保存、大文件支持与输入体验优化**：引入原子化保存与安全的内存映射（`mmap`）重映射机制，支持数 GB 超大文件分块保存，修复 UTF-16 代理对（表情符号与四字节字符）的输入法退格删除问题，并优化单色点阵字体渲染与外部修改重新加载提示的多语言本地化。
 
 ---
 
 ## 🇹🇼 繁體中文 (Traditional Chinese)
 感謝您使用 **miu**。
-v1.0.49 修復了 Mermaid 圖表預覽中包含全形括號的中日韓標籤在自動換行時可能出現卡頓或停止回應的問題，並全面強化了 33 種圖表的 UTF-8 多位元組字元解析。
+v1.0.51 全面強化了**即時預覽的離線隔離與安全防護**、**65 種語言語法突顯與 Mermaid/LaTeX 引擎精準度**，並提升了**原子化檔案儲存、超大檔案讀寫與多語言輸入法（IME）穩定性**。
 
-- **修復 Mermaid 圖表全形括號與長文字自動換行卡頓問題**：修復了在流程圖等節點標籤中同時使用中文、日文、韓文與全形括號（如 `（1）`、`【1】`、`「1」` 等）時，自動換行計算可能導致預覽變慢或停止回應的問題。
-- **強化全部 33 種 Mermaid 圖表的多語言字元解析**：修復了部分 UTF-8 多位元組字元在標籤、標題、設定值及粗體／斜體語法中被誤判為空白字元的問題，確保所有圖表準確繪製。
+- **即時預覽完全離線隔離與安全加固**：為 Markdown / HTML / SVG / Mermaid / LaTeX 預覽啟用嚴格的離線安全原則（CSP）、攔截外部網路請求、淨化 HTML 標籤與連結，並為工作清單核取方塊互動加入加密隨機權杖（Nonce）驗證，安全轉義以 `<` 開頭的純文字檔，實現線性時間 `O(N)` 行內強調解析。
+- **語法突顯與 Mermaid 圖表引擎精準度提升**：最佳化 Python 三引號與區塊註解閉合識別、包含 CRLF 換行的未閉合 Markdown 程式碼區塊高速突顯、Prolog `-->` 運算子、Batch `REM` 邊界及 Rust/F#/Haskell 單引號解析；增強 Mermaid `stateDiagram-v2` 複合狀態、`block-beta` 巢狀與數值圖表的渲染穩定性。
+- **原子化安全儲存、大檔案支援與輸入體驗最佳化**：導入原子化儲存與安全的記憶體映射（`mmap`）重映射機制，支援數 GB 超大檔案分塊儲存，修復 UTF-16 代理對（表情符號與四位元組字元）的輸入法退格刪除問題，並最佳化單色點陣字體渲染與外部修改重新載入提示的多語言在地化。
 
 ---
 
 ## 🇰🇷 한국어 (Korean)
 언제나 **miu**를 이용해 주셔서 감사합니다.
-v1.0.49에서는 Mermaid 다이어그램 미리보기에서 전각 괄호가 포함된 다국어 라벨을 줄바꿈할 때 동작이 느려지거나 멈추는 문제를 수정하고, 33종의 모든 다이어그램에서 UTF-8 다중 바이트 문자 처리를 개선했습니다.
+v1.0.51에서는 전 플랫폼에 걸쳐 **실시간 미리보기 완전 오프라인 격리 및 보안 강화**, **65개 언어 구문 강조 및 Mermaid/LaTeX 엔진 정밀도 향상**, 그리고 **원자적(Atomic) 파일 저장·대용량 처리·다국어 IME 입력 안정성 개선**을 진행했습니다.
 
-- **Mermaid 다이어그램 전각 괄호 및 긴 라벨 자동 줄바꿈 멈춤 현상 수정**: 플로차트 등의 노드 라벨에 한국어·일본어·중국어 등 전각 문자와 전각 괄호(`（1）`, `【1】`, `「1」` 등)를 함께 입력했을 때 자동 줄바꿈 계산 중 미리보기가 무거워지거나 응답하지 않던 문제를 해결했습니다.
-- **전체 33종 Mermaid 다이어그램의 다국어 문자 파싱 강화**: UTF-8 다중 바이트 문자가 공백 문자로 오인되지 않도록 개선하여 라벨·제목·굵게/기울임꼴 서식이 정확하게 렌더링됩니다.
+- **실시간 미리보기 오프라인 격리 및 보안 강화**: Markdown / HTML / SVG / Mermaid / LaTeX 미리보기에 엄격한 오프라인 CSP 및 외부 네트워크 차단, HTML/URL 살균 처리를 적용하고 체크리스트 토글 브리지에 암호화 난스(Nonce) 검증을 도입했습니다. 또한 `<`로 시작하는 일반 텍스트의 안전한 이스케이프 표시 및 선형 시간 `O(N)` 인라인 강조 파싱을 지원합니다.
+- **구문 강조 및 Mermaid 다이어그램 엔진 정밀도 향상**: Python 삼중 따옴표 및 블록 주석 종결 인식 개선, CRLF 개행을 포함한 미종결 Markdown 코드 블록의 초고속 강조, Prolog `-->` 연산자·Batch `REM` 경계·Rust/F#/Haskell 작은따옴표 파싱 개선 및 Mermaid `stateDiagram-v2` 복합 상태·`block-beta`·수치 차트 렌더링 안정성을 강화했습니다.
+- **원자적 파일 저장·대용량 처리 및 입력 개선**: 원자적 파일 저장 및 안전한 메모리 맵(`mmap`) 재매핑으로 저장 중 데이터 보호를 강화하고 수 GB 대용량 분할 저장을 지원합니다. 또한 UTF-16 서로게이트 페어(이모지·4바이트 문자) IME 삭제 정확도 향상, 모노크롬 글리프 렌더링 개선 및 외부 파일 변경 새로고침 다국어 번역을 보강했습니다.
 """
         elif os.path.exists(notes):
             with open(notes, "r", encoding="utf-8") as f:
