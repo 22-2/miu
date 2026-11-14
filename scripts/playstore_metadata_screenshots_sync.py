@@ -13,17 +13,32 @@ import time
 import json
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import requests
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+try:
+    import requests
+except ImportError:
+    requests = None
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(SCRIPT_DIR)
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
-from playstore_upload import get_access_token, PACKAGE_NAME, DEFAULT_KEY_PATH
+PACKAGE_NAME = "jp.hack.miu"
+DEFAULT_KEY_PATH = os.path.join(SCRIPT_DIR, "google_play_service_account.json")
 import appstore_metadata_sync as ams
-import appstore_screenshots_sync as ass
+
+Image = ImageDraw = ImageFilter = ImageFont = None
+ass = None
+
+
+def _ensure_imaging_deps():
+    global Image, ImageDraw, ImageFilter, ImageFont, ass
+    if Image is None:
+        from PIL import Image as _Image, ImageDraw as _ImageDraw, ImageFilter as _ImageFilter, ImageFont as _ImageFont
+        Image, ImageDraw, ImageFilter, ImageFont = _Image, _ImageDraw, _ImageFilter, _ImageFont
+    if ass is None:
+        import appstore_screenshots_sync as _ass
+        ass = _ass
 
 BASE_URL = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{PACKAGE_NAME}"
 UPLOAD_BASE_URL = f"https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{PACKAGE_NAME}"
@@ -56,10 +71,10 @@ AR_DESC = """miu هو محرر نصوص وأكواد بسيط وخفيف، مص�
 • خصوصية تامة
 بدون إعلانات، وبدون تتبع، وبدون جمع بيانات. جميع الميزات تعمل بنسبة 100% دون اتصال بالإنترنت على جهازك."""
 
-AR_WHATS_NEW = """شكراً لاستخدامك miu. يعزّز الإصدار 1.0.51 الأمان والاستقرار والدقة:
-• حماية المعاينة الفورية دون اتصال: سياسة CSP صارمة وحظر الشبكة الخارجية وتنقية HTML وعرض آمن للملفات التي تبدأ بـ (<) وتحليل سريع لـ Markdown.
-• دقة تمييز الصياغة وMermaid: تحسين علامات الاقتباس الثلاثية في Python والتعليقات في 65 فئة لغوية واستقرار مخططات stateDiagram-v2 وblock-beta.
-• تحسين حذف الرموز التعبيرية عبر لوحة المفاتيح ودقة عرض الخطوط."""
+AR_WHATS_NEW = """الجديد في miu v1.0.53
+• تعزيز أمان المعاينة الفورية دون اتصال وتحسين عرض Markdown ومعادلات LaTeX وجميع مخططات Mermaid الـ 33.
+• تحسين البحث والاستبدال متعدد الأسطر (Regex) واختصارات Emmet وتمييز الصياغة لـ 65 لغة.
+• تنبيه قبل فقدان الأحرف عند الحفظ بترميز غير UTF-8، وتحسين الحفظ الذري الآمن ودعم اللغات."""
 
 HE_DESC = """miu הוא עורך טקסט וקוד פשוט וקליל, שנועד להפוך כל משימה – מרישום הערות יומיות מהירות ועד כתיבת מסמכי Markdown ותכנות – לנוחה ונעימה.
 
@@ -85,10 +100,10 @@ HE_DESC = """miu הוא עורך טקסט וקוד פשוט וקליל, שנוע
 • פרטיות מלאה
 ללא פרסומות, ללא מעקב וללא איסוף נתונים. הכל פועל 100% אופליין במכשיר שלכם."""
 
-HE_WHATS_NEW = """תודה שאתם משתמשים ב-miu. גרסה 1.0.51 משפרת את האבטחה, היציבות והדיוק:
-• הגנת תצוגה מקדימה אופליין: מדיניות CSP מחמירה, חסימת רשת חיצונית, סינון HTML/URL, הצגה בטוחה של קבצים המתחילים ב-(<) וניתוח מהיר של Markdown.
-• דיוק תחביר ו-Mermaid: שיפור מרכאות משולשות ב-Python והערות בלוק ב-65 קטגוריות שפה ויציבות דיאגרמות stateDiagram-v2 ו-block-beta.
-• תיקון מחיקת אימוג'י במקלדת ושיפור חדות הצגת גופנים."""
+HE_WHATS_NEW = """מה חדש ב-miu v1.0.53
+• חיזוק אבטחת התצוגה המקדימה אופליין ושיפור התצוגה של Markdown, נוסחאות LaTeX ו-33 סוגי דיאגרמות Mermaid.
+• שיפור חיפוש והחלפה מרובי-שורות ב-Regex, הרחבת Emmet והדגשת תחביר ל-65 שפות.
+• התראה לפני אובדן תווים בשמירה שאינה UTF-8, שמירה אטומית בטוחה יותר ושיפורי תרגום."""
 
 SK_DESC = """miu je jednoduchý a ľahký textový a kódový editor, s ktorým je písanie každodenných poznámok, textov v Markdowne aj programovanie pohodlné a príjemné.
 
@@ -114,10 +129,10 @@ Hľadanie a nahrádzanie (s regulárnymi výrazmi), viac kurzorov, čísla riadk
 • Súkromie na prvom mieste
 Žiadne reklamy, žiadne sledovanie a žiadny zber dát. Všetko funguje 100 % offline priamo vo vašom zariadení."""
 
-SK_WHATS_NEW = """Ďakujeme, že používate miu. Verzia 1.0.51 zvyšuje bezpečnosť, presnosť a stabilitu:
-• Ochrana živého náhľadu: prísna offline CSP, blokovanie externej siete, čistenie HTML/URL, bezpečné zobrazenie textov od „<“ a rýchly Markdown.
-• Presnejšia syntax a Mermaid: lepšie trojité úvodzovky Pythonu a blokové komentáre (65 kategórií) a stabilita stateDiagram-v2 a block-beta.
-• Opravené mazanie emoji v klávesnici a ostrejšie písmo."""
+SK_WHATS_NEW = """Novinky v miu v1.0.53
+• Posilnené offline zabezpečenie živého náhľadu a presnejšie vykresľovanie Markdownu, LaTeXu a 33 diagramov Mermaid.
+• Vylepšené viacriadkové hľadanie a nahrádzanie Regex, rozbaľovanie Emmet a zvýrazňovanie syntaxe 65 jazykov.
+• Upozornenie na stratu znakov mimo UTF-8, spoľahlivejšie atomické ukladanie a vylepšená lokalizácia."""
 
 # ============================================================================
 # Short Descriptions (Strictly <= 80 characters for Google Play)
@@ -210,149 +225,149 @@ def adapt_desc_for_android(text: str) -> str:
     return out
 
 
-# Localized Android Release Notes for v1.0.51 (versionCode 58), strictly <= 500 chars each
+# Localized Android Release Notes for v1.0.53 (versionCode 60), strictly <= 500 chars each
 ANDROID_RELEASE_NOTES = {
-    "ja-JP": """いつも miu をご利用いただきありがとうございます。v1.0.51 では安全性・描画精度・入力安定性を強化しました。
-・ライブプレビューのオフライン保護強化：厳格な CSP・外部通信遮断・HTMLサニタイズ・チェックリストの暗号検証を適用し、「<」で始まるテキストの安全な表示と高速 Markdown 解析に対応。
-・全65言語シンタックス＆Mermaid精度向上：Python 三重引用符・ブロックコメント解析、CRLF コードブロック高速強調、stateDiagram-v2・block-beta の安定性を改善。
-・絵文字・サロゲートペアの IME 削除修正とフォント描画精度の向上。""",
+    "ja-JP": """miu v1.0.53 アップデート内容
+・ライブプレビューのオフライン保護強化と Markdown / LaTeX 数式 / 全33種 Mermaid 図表の描画精度向上
+・複数行正規表現の検索・置換、Emmet 展開、全65言語シンタックスハイライトの精度改善
+・非 UTF-8 保存時の文字欠落確認、安全なアトミック保存、および多言語ローカライズの改善""",
 
-    "en-US": """Thank you for using miu. Version 1.0.51 enhances offline security, precision & stability:
-• Live Preview Security: Strict offline CSP, network blocking, HTML/URL sanitization, safe display of '<'-prefixed text files & fast O(N) Markdown parsing.
-• Syntax & Mermaid Precision: Improved Python triple quotes & block comments across 65 categories, fast CRLF code-fence highlighting, and stateDiagram-v2 & block-beta stability.
-• Fixed emoji IME deletion & sharper glyph rendering.""",
+    "en-US": """What's New in miu v1.0.53
+• Strengthened offline Live Preview security and improved Markdown, LaTeX math, and all 33 Mermaid diagram renderers.
+• Improved multiline Regex find & replace, Emmet expansion, and 65-language syntax highlighting precision.
+• Added character-loss confirmation for non-UTF-8 saves, enhanced atomic file saving, and refined 30+ language localization.""",
 
-    "zh-CN": """感谢您使用 miu。v1.0.51 全面强化了离线安全防护、渲染精度与输入稳定性：
-・实时预览离线安全加固：启用严格离线 CSP、拦截外部网络请求、过滤 HTML/URL、任务列表勾选加密校验，安全显示以 `<` 开头的文本并加速 Markdown 解析。
-・65 种语言语法高亮与 Mermaid 精度提升：优化 Python 三引号与块注释识别、CRLF 未闭合代码块高速高亮及 stateDiagram-v2、block-beta 稳定性。
-・修复表情符号与四字节字符输入法退格删除问题，并优化字体渲染清晰度。""",
+    "zh-CN": """miu v1.0.53 更新内容
+・强化实时预览离线安全保护，提升 Markdown、LaTeX 公式及 33 种 Mermaid 图表渲染精度
+・改进多行正则表达式查找替换、Emmet 展开与 65 种语言语法高亮准确性
+・新增非 UTF-8 保存字符丢失提醒，优化原子化安全保存与多语言本地化细节""",
 
-    "zh-TW": """感謝您使用 miu。v1.0.51 全面強化了離線安全防護、渲染精準度與輸入穩定性：
-・即時預覽離線安全加固：啟用嚴格離線 CSP、攔截外部網路請求、過濾 HTML/URL、工作清單核取加密驗證，安全顯示以 `<` 開頭的文字並加速 Markdown 解析。
-・65 種語言語法突顯與 Mermaid 精準度提升：最佳化 Python 三引號與區塊註解識別、CRLF 未閉合程式碼區塊高速突顯及 stateDiagram-v2、block-beta 穩定性。
-・修復表情符號與四位元組字元輸入法退格刪除問題，並最佳化字體渲染清晰度。""",
+    "zh-TW": """miu v1.0.53 更新內容
+・強化即時預覽離線安全保護，提升 Markdown、LaTeX 公式及 33 種 Mermaid 圖表渲染精準度
+・改進多行正規表示式尋找取代、Emmet 展開與 65 種語言語法突顯準確性
+・新增非 UTF-8 儲存字元遺失提醒，最佳化原子化安全儲存與多語言在地化細節""",
 
-    "ko-KR": """언제나 miu를 이용해 주셔서 감사합니다. v1.0.51에서는 오프라인 보안·렌더링 정밀도·입력 안정성을 강화했습니다.
-・실시간 미리보기 오프라인 보안 강화: 엄격한 CSP·외부 네트워크 차단·HTML 살균·체크리스트 암호화 검증을 적용하고 '<'로 시작하는 텍스트 안전 표시 및 고속 Markdown 파싱 지원.
-・65개 언어 구문 강조 및 Mermaid 정밀도 향상: Python 삼중 따옴표·블록 주석 인식, CRLF 코드 블록 고속 강조 및 stateDiagram-v2·block-beta 안정성 개선.
-・이모지(서로게이트 페어) IME 삭제 수정 및 글꼴 렌더링 선명도 향상.""",
+    "ko-KR": """miu v1.0.53 업데이트 안내
+・실시간 미리보기 오프라인 보안 강화 및 Markdown·LaTeX 수식·33종 Mermaid 다이어그램 렌더링 정밀도 향상
+・다중 행 정규식 찾기/바꾸기, Emmet 확장 및 65개 언어 구문 강조 정확도 개선
+・비 UTF-8 저장 시 문자 손실 확인 추가, 원자적 안전 저장 및 다국어 번역 품질 개선""",
 
-    "de-DE": """Vielen Dank, dass Sie miu nutzen. Version 1.0.51 verbessert Sicherheit, Präzision & Stabilität:
-• Live-Vorschau-Schutz: Strenge Offline-CSP, Netzwerkblockierung, HTML/URL-Bereinigung, sichere Anzeige von Texten mit „<“ und schnelles Markdown-Parsing.
-• Syntax & Mermaid: Bessere Python-Dreifachzitate & Blockkommentare (65 Kategorien), schnelles CRLF-Codeblock-Highlighting sowie stabilere stateDiagram-v2 & block-beta.
-• Emoji-Löschen per Tastatur korrigiert & schärfere Schrift.""",
+    "de-DE": """Neuerungen in miu v1.0.53
+• Strengere Offline-Sicherheit für die Live-Vorschau sowie präzisere Darstellung von Markdown, LaTeX und allen 33 Mermaid-Diagrammtypen.
+• Verbesserte mehrzeilige Regex-Suche & -Ersetzung, Emmet-Erweiterung und Syntaxhervorhebung für 65 Sprachen.
+• Warnhinweis vor Zeichenverlust beim Speichern in Nicht-UTF-8, zuverlässigeres atomares Speichern und optimierte Lokalisierung.""",
 
-    "fr-FR": """Merci d’utiliser miu. La version 1.0.51 renforce sécurité hors ligne, précision et stabilité :
-• Aperçu en direct sécurisé : CSP stricte hors ligne, blocage réseau, assainissement HTML/URL, affichage sûr des textes débutant par « < » et Markdown rapide.
-• Syntaxe & Mermaid : meilleurs triples guillemets Python et commentaires de bloc (65 langages) et stabilité accrue de stateDiagram-v2 et block-beta.
-• Suppression d’emojis au clavier corrigée et police plus nette.""",
+    "fr-FR": """Nouveautés de miu v1.0.53
+• Sécurité hors ligne renforcée de l’aperçu en direct et rendu amélioré pour Markdown, LaTeX et les 33 types de diagrammes Mermaid.
+• Recherche/remplacement Regex multiligne, extension Emmet et coloration syntaxique de 65 langages plus précis.
+• Alerte de perte de caractères hors UTF-8, sauvegarde atomique fiabilisée et traductions affinées.""",
 
-    "es-ES": """Gracias por usar miu. La versión 1.0.51 refuerza la seguridad sin conexión, precisión y estabilidad:
-• Vista Previa segura: CSP estricta sin conexión, bloqueo de red, saneamiento HTML/URL, vista segura de textos iniciados con '<' y análisis rápido de Markdown.
-• Sintaxis y Mermaid: mejoras en comillas triples Python y comentarios de bloque (65 lenguajes) y estabilidad en stateDiagram-v2 y block-beta.
-• Borrado de emojis en teclado corregido y fuentes más nítidas.""",
+    "es-ES": """Novedades de miu v1.0.53
+• Mayor seguridad sin conexión en Vista Previa y mejor renderizado de Markdown, LaTeX y los 33 diagramas Mermaid.
+• Mejoras en búsqueda y reemplazo Regex multilínea, expansión Emmet y resaltado de sintaxis para 65 lenguajes.
+• Aviso de pérdida de caracteres al guardar fuera de UTF-8, guardado atómico más seguro y mejoras de localización.""",
 
-    "it-IT": """Grazie per aver scelto miu. La versione 1.0.51 migliora sicurezza offline, precisione e stabilità:
-• Anteprima sicura: CSP offline rigorosa, blocco rete esterna, sanificazione HTML/URL, vista sicura dei testi che iniziano con '<' e Markdown veloce.
-• Sintassi e Mermaid: migliorate triple virgolette Python e commenti a blocco (65 linguaggi) e stabilità di stateDiagram-v2 e block-beta.
-• Cancellazione di emoji da tastiera corretta e caratteri più nitidi.""",
+    "it-IT": """Novità di miu v1.0.53
+• Sicurezza offline potenziata nell’Anteprima dal vivo e resa migliorata per Markdown, LaTeX e tutti i 33 diagrammi Mermaid.
+• Ricerca e sostituzione Regex multiriga, espansione Emmet ed evidenziazione per 65 linguaggi più precisi.
+• Avviso di perdita caratteri nei salvataggi non UTF-8, salvataggio atomico ancora più sicuro e localizzazione rifinita.""",
 
-    "pt-BR": """Obrigado por usar o miu. A versão 1.0.51 reforça a segurança offline, precisão e estabilidade:
-• Segurança na Pré-visualização: CSP offline rigorosa, bloqueio de rede externa, sanitização HTML/URL, exibição segura de textos iniciados por '<' e Markdown rápido.
-• Sintaxe e Mermaid: melhorias em aspas triplas Python e comentários de bloco (65 categorias) e estabilidade em stateDiagram-v2 e block-beta.
-• Exclusão de emojis no teclado corrigida e fontes mais nítidas.""",
+    "pt-BR": """Novidades do miu v1.0.53
+• Segurança offline reforçada na Pré-visualização e melhor renderização de Markdown, LaTeX e dos 33 diagramas Mermaid.
+• Melhorias na busca e substituição Regex multilinha, expansão Emmet e destaque de sintaxe para 65 linguagens.
+• Aviso de perda de caracteres ao salvar fora de UTF-8, salvamento atômico mais seguro e melhorias de tradução.""",
 
-    "ru-RU": """Спасибо, что пользуетесь miu. В версии 1.0.51 усилены офлайн-безопасность, точность и стабильность:
-• Защита предпросмотра: строгая CSP, блокировка внешних запросов, очистка HTML/URL, безопасный показ текстов с «<» и быстрый разбор Markdown.
-• Синтаксис и Mermaid: улучшен разбор тройных кавычек Python и блочных комментариев (65 категорий языков), повышена стабильность stateDiagram-v2 и block-beta.
-• Исправлено удаление эмодзи при вводе с клавиатуры и улучшена чёткость шрифтов.""",
+    "ru-RU": """Что нового в miu v1.0.53
+• Усилена офлайн-защита предпросмотра и улучшена отрисовка Markdown, формул LaTeX и всех 33 типов диаграмм Mermaid.
+• Повышена точность многострочного поиска Regex, автодополнения Emmet и подсветки синтаксиса 65 языков.
+• Добавлено предупреждение о потере символов при сохранении не в UTF-8, улучшены атомарное сохранение и локализация.""",
 
-    "nl-NL": """Bedankt voor het gebruiken van miu. Versie 1.0.51 verbetert offline beveiliging, precisie en stabiliteit:
-• Beveiliging Live Voorbeeld: strikte offline CSP, netwerkblokkering, HTML/URL-opschoning, veilige weergave van teksten beginnend met '<' en snelle Markdown-verwerking.
-• Syntax & Mermaid: betere Python-triple-quotes en blokcommentaar in 65 taalcategorieën en stabielere stateDiagram-v2 & block-beta.
-• Emoji-verwijdering via toetsenbord hersteld en scherpere lettertypeweergave.""",
+    "nl-NL": """Nieuw in miu v1.0.53
+• Verbeterde offline beveiliging van Live Voorbeeld en nauwkeurigere weergave van Markdown, LaTeX en 33 Mermaid-diagrammen.
+• Betere meerregelige Regex-zoek- en vervangfunctie, Emmet-uitbreiding en syntaxisaccentuering voor 65 talen.
+• Waarschuwing bij tekenverlies buiten UTF-8, betrouwbaarder atomair opslaan en verfijnde lokalisatie.""",
 
-    "sv-SE": """Tack för att du använder miu. Version 1.0.51 stärker offlinesäkerhet, precision och stabilitet:
-• Säker förhandsgranskning: strikt offline-CSP, blockering av externa anrop, HTML/URL-sanering, säker visning av texter som börjar med '<' och snabb Markdown-tolkning.
-• Syntax & Mermaid: bättre trippelcitat i Python och blockkommentarer i 65 språkkategorier samt stabilare stateDiagram-v2 och block-beta.
-• Åtgärdad borttagning av emojis via tangentbord och skarpare teckenåtergivning.""",
+    "sv-SE": """Nyheter i miu v1.0.53
+• Stärkt offlinesäkerhet i förhandsgranskningen samt förbättrad visning av Markdown, LaTeX och alla 33 Mermaid-diagram.
+• Förbättrad flerradig Regex-sök/ersätt, Emmet-utökning och syntaxmarkering för 65 språk.
+• Varning vid teckenförlust utanför UTF-8, tryggare atomär sparning och förfinad lokalisering.""",
 
-    "da-DK": """Tak fordi du bruger miu. Version 1.0.51 styrker offlinesikkerhed, præcision og stabilitet:
-• Sikker forhåndsvisning: striks offline-CSP, blokering af eksterne netværkskald, HTML/URL-rensning, sikker visning af tekster der starter med '<' og hurtig Markdown-analyse.
-• Syntaks & Mermaid: bedre tredobbelte anførselstegn i Python og blokkommentarer i 65 sprogkategorier samt mere stabile stateDiagram-v2 og block-beta.
-• Rettet sletning af emojis via tastatur og skarpere skriftgengivelse.""",
+    "da-DK": """Nyheder i miu v1.0.53
+• Styrket offlinesikkerhed i Live-forhåndsvisning samt bedre visning af Markdown, LaTeX og alle 33 Mermaid-diagrammer.
+• Forbedret flerlinjet Regex-søg/erstat, Emmet-udvidelse og syntaksfremhævning for 65 sprog.
+• Advarsel ved tegntab uden for UTF-8, mere pålidelig atomisk lagring og forbedret lokalisering.""",
 
-    "no-NO": """Takk for at du bruker miu. Versjon 1.0.51 styrker offlinesikkerhet, presisjon og stabilitet:
-• Sikker forhåndsvisning: streng offline-CSP, blokkering av eksterne nettverkskall, HTML/URL-rensing, trygg visning av tekster som starter med «<» og rask Markdown-analyse.
-• Syntaks og Mermaid: bedre trippelanførselstegn i Python og blokkommentarer i 65 språkkategorier samt mer stabile stateDiagram-v2 og block-beta.
-• Rettet sletting av emojier via tastatur og skarpere skriftgjengivelse.""",
+    "no-NO": """Nyheter i miu v1.0.53
+• Styrket offlinesikkerhet i forhåndsvisning og bedre visning av Markdown, LaTeX og alle 33 Mermaid-diagrammer.
+• Forbedret flerlinjet Regex-søk/erstatt, Emmet-utvidelse og syntaksutheving for 65 språk.
+• Varsel ved tegntap utenfor UTF-8, tryggere atomisk lagring og forbedret lokalisering.""",
 
-    "fi-FI": """Kiitos, että käytät miuta. Versio 1.0.51 parantaa offline-tietoturvaa, tarkkuutta ja vakautta:
-• Esikatselun suoja: tiukka offline-CSP, ulkoisten yhteyksien esto, HTML/URL-puhdistus, '<'-alkuisten tekstien turvallinen näyttö ja nopea Markdown-jäsennys.
-• Syntaksi ja Mermaid: parempi Pythonin kolmoislainausmerkkien ja lohkokommenttien tuki (65 kielikategoriaa) sekä vakaammat stateDiagram-v2 ja block-beta.
-• Korjattu emojien poisto näppäimistöllä ja terävöitetty fonttien piirtoa.""",
+    "fi-FI": """Uutta versiossa miu v1.0.53
+• Vahvistettu esikatselun offline-tietoturva sekä tarkempi Markdown-, LaTeX- ja 33 Mermaid-kaavion piirto.
+• Parannettu monirivinen Regex-haku ja -korvaus, Emmet-laajennus sekä 65 kielen syntaksinkorostus.
+• Varoitus merkkitappioista muussa kuin UTF-8-tallennuksessa, luotettavampi atominen tallennus ja päivitetty lokalisointi.""",
 
-    "pl-PL": """Dziękujemy za korzystanie z miu. Wersja 1.0.51 wzmacnia bezpieczeństwo offline, precyzję i stabilność:
-• Ochrona podglądu na żywo: ścisła CSP offline, blokada sieci zewnętrznej, czyszczenie HTML/URL, bezpieczne wyświetlanie tekstów od „<” i szybkie parsowanie Markdown.
-• Składnia i Mermaid: ulepszone potrójne cudzysłowy Pythona i komentarze blokowe (65 kategorii) oraz stabilniejsze stateDiagram-v2 i block-beta.
-• Poprawione usuwanie emoji z klawiatury i wyraźniejsze renderowanie czcionek.""",
+    "pl-PL": """Nowości w miu v1.0.53
+• Wzmocnione bezpieczeństwo podglądu offline oraz lepsze renderowanie Markdown, LaTeX i 33 diagramów Mermaid.
+• Ulepszone wielowierszowe wyszukiwanie Regex, rozwijanie Emmet i kolorowanie składni dla 65 języków.
+• Ostrzeżenie przed utratą znaków przy zapisie spoza UTF-8, pewniejszy zapis atomowy i dopracowana lokalizacja.""",
 
-    "cs-CZ": """Děkujeme, že používáte miu. Verze 1.0.51 posiluje offline zabezpečení, přesnost a stabilitu:
-• Ochrana živého náhledu: přísná offline CSP, blokování externí sítě, čištění HTML/URL, bezpečné zobrazení textů začínajících „<“ a rychlé zpracování Markdownu.
-• Syntaxe a Mermaid: lepší trojité uvozovky v Pythonu a blokové komentáře (65 kategorií jazyků) a stabilnější stateDiagram-v2 a block-beta.
-• Opraveno mazání emoji na klávesnici a ostřejší vykreslování písma.""",
+    "cs-CZ": """Novinky v miu v1.0.53
+• Posílené offline zabezpečení živého náhledu a přesnější vykreslování Markdownu, LaTeXu a 33 diagramů Mermaid.
+• Vylepšené víceřádkové hledání a nahrazování Regex, rozbalování Emmet a zvýrazňování syntaxe 65 jazyků.
+• Upozornění na ztrátu znaků mimo UTF-8, spolehlivější atomické ukládání a vylepšená lokalizace.""",
 
     "sk": SK_WHATS_NEW,
 
-    "hu-HU": """Köszönjük, hogy a miu alkalmazást használja. Az 1.0.51-es verzió növeli az offline biztonságot és a pontosságot:
-• Élő előnézet védelme: szigorú offline CSP, külső hálózat tiltása, HTML/URL-tisztítás, a „<” jellel kezdődő szövegek biztonságos megjelenítése és gyors Markdown-elemzés.
-• Szintaxis és Mermaid: pontosabb Python tripla idézőjelek és blokk-kommentek (65 nyelvi kategória), stabilabb stateDiagram-v2 és block-beta.
-• Javított emoji-törlés billentyűzeten és élesebb betűmegjelenítés.""",
+    "hu-HU": """A miu v1.0.53 újdonságai
+• Megerősített offline Élő előnézet-védelem, pontosabb Markdown, LaTeX és 33-féle Mermaid diagrammegjelenítés.
+• Fejlesztett többsoros Regex keresés és csere, Emmet-kibontás és 65 nyelvű szintaxiskiemelés.
+• Karaktervesztési figyelmeztetés nem UTF-8 mentésnél, még biztonságosabb atomi mentés és pontosított honosítás.""",
 
-    "ro": """Vă mulțumim că folosiți miu. Versiunea 1.0.51 crește securitatea offline, precizia și stabilitatea:
-• Protecție Previzualizare: CSP offline strictă, blocare rețea externă, igienizare HTML/URL, afișare sigură a textelor cu „<” și Markdown rapid.
-• Sintaxă și Mermaid: ghilimele triple Python și comentarii bloc îmbunătățite (65 de categorii) și stabilitate în stateDiagram-v2 și block-beta.
-• Ștergere corectă a emoji-urilor din tastatură și fonturi mai clare.""",
+    "ro": """Noutăți în miu v1.0.53
+• Securitate offline sporită în Previzualizare și redare îmbunătățită pentru Markdown, LaTeX și 33 de diagrame Mermaid.
+• Căutare și înlocuire Regex pe mai multe rânduri, extindere Emmet și sintaxă pentru 65 de limbaje mai precise.
+• Avertizare la pierderea caracterelor în afara UTF-8, salvare atomică sigură și localizare îmbunătățită.""",
 
-    "el-GR": """Σας ευχαριστούμε που χρησιμοποιείτε το miu. Η έκδοση 1.0.51 ενισχύει την ασφάλεια, την ακρίβεια και τη σταθερότητα:
-• Ασφάλεια προεπισκόπησης: αυστηρή CSP εκτός σύνδεσης, φραγή δικτύου, καθαρισμός HTML/URL, ασφαλής εμφάνιση κειμένων με «<» και γρήγορη ανάλυση Markdown.
-• Σύνταξη & Mermaid: βελτιωμένα τριπλά εισαγωγικά Python και σχόλια μπλοκ (65 κατηγορίες) και σταθερότητα σε stateDiagram-v2 & block-beta.
-• Διόρθωση διαγραφής emoji στο πληκτρολόγιο και ευκρινέστερη απόδοση γραμματοσειρών.""",
+    "el-GR": """Τι νέο υπάρχει στο miu v1.0.53
+• Ενισχυμένη ασφάλεια προεπισκόπησης εκτός σύνδεσης και ακριβέστερη απόδοση Markdown, LaTeX και 33 διαγραμμάτων Mermaid.
+• Βελτιωμένη αναζήτηση/αντικατάσταση Regex πολλαπλών γραμμών, Emmet και επισήμανση σύνταξης 65 γλωσσών.
+• Προειδοποίηση απώλειας χαρακτήρων εκτός UTF-8, ασφαλέστερη ατομική αποθήκευση και βελτιωμένη μετάφραση.""",
 
-    "tr-TR": """miu'yu kullandığınız için teşekkür ederiz. 1.0.51 sürümü çevrimdışı güvenliği, hassasiyeti ve kararlılığı artırır:
-• Canlı Önizleme Güvenliği: Sıkı çevrimdışı CSP, dış ağ engelleme, HTML/URL temizleme, '<' ile başlayan metinlerin güvenli gösterimi ve hızlı Markdown ayrıştırma.
-• Sözdizimi ve Mermaid: 65 dil kategorisinde Python üçlü tırnak ve blok yorum iyileştirmeleri ile stateDiagram-v2 ve block-beta kararlılığı.
-• Klavyede emoji silme düzeltmesi ve daha net yazı tipi görünümü.""",
+    "tr-TR": """miu v1.0.53 Yenilikleri
+• Güçlendirilmiş çevrimdışı Canlı Önizleme güvenliği ve Markdown, LaTeX ile 33 Mermaid şemasında daha net görünüm.
+• Çok satırlı Regex bul/değiştir, Emmet genişletme ve 65 dil sözdizimi vurgulamada doğruluk iyileştirmeleri.
+• UTF-8 dışı kayıtlarda karakter kaybı uyarısı, daha güvenli atomik kaydetme ve çok dilli arayüz iyileştirmeleri.""",
 
-    "uk": """Дякуємо, що користуєтеся miu. У версії 1.0.51 посилено офлайн-безпеку, точність і стабільність:
-• Захист перегляду наживо: сувора CSP, блокування зовнішньої мережі, очищення HTML/URL, безпечний показ текстів із «<» та швидкий розбір Markdown.
-• Синтаксис і Mermaid: покращено потрійні лапки Python і блокові коментарі (65 категорій мов) та стабільність stateDiagram-v2 і block-beta.
-• Виправлено видалення емодзі з клавіатури та покращено чіткість шрифтів.""",
+    "uk": """Що нового в miu v1.0.53
+• Посилено офлайн-захист перегляду та покращено відображення Markdown, формул LaTeX і 33 типів діаграм Mermaid.
+• Покращено багаторядковий пошук і заміну Regex, розгортання Emmet та підсвічування синтаксису 65 мов.
+• Додано попередження про втрату символів під час збереження не в UTF-8, надійніше атомарне збереження й локалізацію.""",
 
-    "vi": """Cảm ơn bạn đã sử dụng miu. Phiên bản 1.0.51 tăng cường bảo mật ngoại tuyến, độ chính xác và ổn định:
-• Bảo mật Xem trước: CSP ngoại tuyến nghiêm ngặt, chặn mạng ngoài, làm sạch HTML/URL, hiển thị an toàn văn bản bắt đầu bằng '<' và phân tích Markdown nhanh.
-• Cú pháp & Mermaid: cải thiện chuỗi ba dấu nháy Python và chú thích khối (65 nhóm ngôn ngữ) cùng độ ổn định stateDiagram-v2, block-beta.
-• Sửa lỗi xóa emoji trên bàn phím và hiển thị phông chữ sắc nét hơn.""",
+    "vi": """Có gì mới trong miu v1.0.53
+• Tăng cường bảo mật Xem trước ngoại tuyến và hiển thị chuẩn xác hơn cho Markdown, LaTeX cùng 33 loại sơ đồ Mermaid.
+• Cải thiện tìm/thay thế Regex nhiều dòng, gõ tắt Emmet và tô sáng cú pháp cho 65 ngôn ngữ.
+• Thêm cảnh báo mất ký tự khi lưu ngoài UTF-8, nâng cao lưu tệp nguyên tử an toàn và bản địa hóa đa ngôn ngữ.""",
 
-    "th": """ขอบคุณที่ใช้บริการ miu เวอร์ชัน 1.0.51 ยกระดับความปลอดภัยออฟไลน์ ความแม่นยำ และความเสถียร:
-• ความปลอดภัยของพรีวิวสด: CSP ออฟไลน์เข้มงวด บล็อกเครือข่ายภายนอก คัดกรอง HTML/URL แสดงข้อความที่ขึ้นต้นด้วย '<' อย่างปลอดภัย และแปลง Markdown เร็วขึ้น
-• ไวยากรณ์และ Mermaid: ปรับปรุงอัญประกาศสามชั้นของ Python และความคิดเห็นบล็อก (65 หมวดหมู่ภาษา) พร้อมความเสถียรของ stateDiagram-v2 และ block-beta
-• แก้ไขการลบอีโมจิด้วยแป้นพิมพ์และแสดงฟอนต์คมชัดยิ่งขึ้น""",
+    "th": """มีอะไรใหม่ใน miu v1.0.53
+• ยกระดับความปลอดภัยพรีวิวออฟไลน์ และแสดงผล Markdown, สมการ LaTeX และแผนภาพ Mermaid ทั้ง 33 รูปแบบได้แม่นยำขึ้น
+• ปรับปรุงการค้นหา/แทนที่ด้วย Regex หลายบรรทัด, Emmet และการไฮไลต์ไวยากรณ์ 65 ภาษา
+• เพิ่มการแจ้งเตือนอักขระตกหล่นเมื่อบันทึกนอก UTF-8 ปรับปรุงการบันทึกไฟล์แบบอะตอมมิกและการแปลภาษา""",
 
-    "id": """Terima kasih telah menggunakan miu. Versi 1.0.51 meningkatkan keamanan offline, akurasi, dan stabilitas:
-• Keamanan Pratinjau: CSP offline ketat, blokir jaringan eksternal, sanitasi HTML/URL, tampilan aman teks berawalan '<', dan penguraian Markdown cepat.
-• Sintaks & Mermaid: perbaikan tanda kutip tiga Python & komentar blok (65 kategori bahasa) serta stabilitas stateDiagram-v2 & block-beta.
-• Perbaikan penghapusan emoji pada keyboard dan tampilan font lebih tajam.""",
+    "id": """Yang Baru di miu v1.0.53
+• Keamanan offline Pratinjau Langsung diperkuat serta tampilan Markdown, LaTeX, dan 33 diagram Mermaid lebih akurat.
+• Peningkatan cari & ganti Regex multibaris, ekspansi Emmet, dan penyorotan sintaks 65 bahasa.
+• Peringatan kehilangan karakter saat menyimpan non-UTF-8, penyimpanan atomik lebih aman, dan perbaikan pelokalan.""",
 
-    "ms": """Terima kasih kerana menggunakan miu. Versi 1.0.51 memperkukuh keselamatan luar talian, ketepatan dan kestabilan:
-• Keselamatan Pratonton: CSP luar talian ketat, sekatan rangkaian luaran, pembersihan HTML/URL, paparan selamat teks bermula '<' dan penghuraian Markdown pantas.
-• Sintaks & Mermaid: penambahbaikan petikan tiga kali Python & komen blok (65 kategori) serta kestabilan stateDiagram-v2 & block-beta.
-• Pembaikan pemadaman emoji papan kekunci dan paparan fon lebih tajam.""",
+    "ms": """Baharu dalam miu v1.0.53
+• Keselamatan luar talian Pratonton Langsung diperkukuh serta paparan Markdown, LaTeX dan 33 rajah Mermaid lebih tepat.
+• Penambahbaikan cari & ganti Regex berbilang baris, pengembangan Emmet dan penyerlahan sintaks 65 bahasa.
+• Amaran kehilangan aksara bagi simpanan bukan UTF-8, simpanan atomik lebih selamat dan penyetempatan diperhalusi.""",
 
-    "hi-IN": """miu का उपयोग करने के लिए धन्यवाद। संस्करण 1.0.51 ऑफ़लाइन सुरक्षा, सटीकता और स्थिरता को बढ़ाता है:
-• लाइव प्रीव्यू सुरक्षा: सख्त ऑफ़लाइन CSP, बाहरी नेटवर्क रोक, HTML/URL स्वच्छता, '<' से शुरू होने वाले टेक्स्ट का सुरक्षित प्रदर्शन और तेज़ Markdown पार्सिंग।
-• सिंटैक्स व Mermaid: 65 भाषा श्रेणियों में Python ट्रिपल-कोट्स व ब्लॉक कमेंट सुधार तथा stateDiagram-v2 और block-beta स्थिरता।
-• कीबोर्ड से इमोजी हटाने में सुधार और अधिक स्पष्ट फ़ॉन्ट रेंडरिंग।""",
+    "hi-IN": """miu v1.0.53 में नया क्या है
+• ऑफ़लाइन लाइव प्रीव्यू सुरक्षा को मजबूत किया गया और Markdown, LaTeX व सभी 33 Mermaid आरेखों की रेंडरिंग सुधारी गई।
+• मल्टीलाइन Regex खोजें/बदलें, Emmet विस्तार और 65 भाषाओं के सिंटैक्स हाइलाइटिंग की सटीकता बढ़ाई गई।
+• गैर-UTF-8 सेव में अक्षर हानि चेतावनी, अधिक सुरक्षित एटॉमिक फ़ाइल सेविंग और बहुभाषी अनुवाद में सुधार।""",
 
     "ar": AR_WHATS_NEW,
     "iw-IL": HE_WHATS_NEW,
@@ -423,6 +438,7 @@ PLAY_LOCALE_CONFIG = {
 
 def get_android_slide_specs(prefix: str):
     """Adapt slide specs so badges and copy use Android/PC shortcuts (Alt+P, Ctrl+F, Ctrl+D)."""
+    _ensure_imaging_deps()
     specs = ass.get_slide_specs(prefix)
     for s in specs:
         s["badge"] = (
@@ -458,6 +474,7 @@ ANDROID_TABLET_BG_CACHE = {}
 
 def render_android_phone_slide(spec, font_bold_path, font_reg_path, target_size=(1080, 1920)):
     """Render an Android Phone Portrait marketing screenshot (9:16, 1080x1920) with top/bottom split preview."""
+    _ensure_imaging_deps()
     W, H = 900, 1600
     pal_key = (id(spec["palette"]), W, H)
     if pal_key not in ANDROID_PHONE_BG_CACHE:
@@ -655,6 +672,7 @@ def render_android_phone_slide(spec, font_bold_path, font_reg_path, target_size=
 
 def render_android_tablet_slide(spec, font_bold_path, font_reg_path, target_size=(1920, 1200)):
     """Render an Android Tablet Landscape screenshot (16:10, 1920x1200) with left/right split preview."""
+    _ensure_imaging_deps()
     W, H = 1440, 900
     pal_key = (id(spec["palette"]), W, H)
     if pal_key not in ANDROID_TABLET_BG_CACHE:
@@ -770,6 +788,7 @@ def render_android_tablet_slide(spec, font_bold_path, font_reg_path, target_size
 
 def render_android_prefix_sets(prefix: str, out_dir: str):
     """Render 5 phone screenshots and 5 tablet screenshots for a language prefix."""
+    _ensure_imaging_deps()
     os.makedirs(out_dir, exist_ok=True)
     fb, fr = ass.resolve_font_paths(prefix)
     specs = get_android_slide_specs(prefix)
@@ -815,6 +834,9 @@ def play_request(method: str, url: str, token: str, json_data=None, data=None, c
 
 
 def sync_play_store(out_dir: str, key_path: str, skip_screenshots: bool = False):
+    if requests is None:
+        raise ImportError("The 'requests' package is required for sync_play_store")
+    from playstore_upload import get_access_token
     print("=== Google Play Store Metadata, Release Notes & Screenshot Synchronizer ===")
     token = get_access_token(key_path)
 

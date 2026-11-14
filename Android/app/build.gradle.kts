@@ -17,13 +17,14 @@ android {
     compileSdk {
         version = release(36)
     }
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "jp.hack.miu"
         minSdk = 24
         targetSdk = 36
-        versionCode = 58
-        versionName = "1.0.51"
+        versionCode = 60
+        versionName = "1.0.53"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
