@@ -264,7 +264,40 @@ static void testDelete() {
     CHECK(!forklist::onDelete({ "- a" }, 0, 3, "\t").handled);
 }
 
+// Builds a document from lines, applies the splice that turns window [first, first + oldL.size())
+// into newL, and returns the resulting document text.
+static std::string applySplice(const Lines& doc, size_t first, const Lines& newL) {
+    std::string text;
+    std::vector<size_t> starts;
+    for (size_t i = 0; i < doc.size(); ++i) {
+        starts.push_back(text.size());
+        text += doc[i];
+        if (i + 1 < doc.size()) text += "\n";
+    }
+    Lines oldL(doc.begin() + static_cast<std::ptrdiff_t>(first), doc.end());
+    forklist::Splice sp = forklist::spliceFor(oldL, newL, first, starts, text.size(), "\n");
+    if (!sp.changed) return text;
+    CHECK(sp.start <= sp.end && sp.end <= text.size());
+    return text.substr(0, sp.start) + sp.text + text.substr(sp.end);
+}
+
+static void testSplice() {
+    // Enter on the document's last line appends a line after it.
+    Lines doc = { "## memo", "", "- a", "    - b" };
+    auto r = forklist::onEnter({ "", "- a", "    - b" }, 2, 7, "    ", forklist::BlankItemEnter::Continue);
+    CHECK(applySplice(doc, 1, r.lines) == "## memo\n\n- a\n    - b\n    - ");
+    // Changes in the middle keep the lines around them.
+    CHECK(applySplice({ "x", "- a", "- b", "y" }, 1, { "- a", "- new", "- b", "y" }) == "x\n- a\n- new\n- b\ny");
+    // Removing the last line drops the newline before it.
+    CHECK(applySplice({ "- a", "- b" }, 0, { "- ab" }) == "- ab");
+    CHECK(applySplice({ "- a", "- b", "z" }, 0, { "- ab", "z" }) == "- ab\nz");
+    // Replacing the only line.
+    CHECK(applySplice({ "- a" }, 0, { "- a", "- " }) == "- a\n- ");
+    CHECK(!forklist::spliceFor({ "- a" }, { "- a" }, 0, { 0 }, 3, "\n").changed);
+}
+
 int main() {
+    testSplice();
     testParse();
     testStructure();
     testEnter();

@@ -231,7 +231,7 @@
             std::string text = pt.getRange(a, b - a);
             pt.erase(a, text.size()); batch.ops.push_back({ EditOp::Erase, a, text });
             cursors.clear(); cursors.push_back({ a, a, getXFromPos(a) });
-            batch.afterCursors = cursors; undo.push(batch);
+            batch.afterCursors = cursors; pushUndoBatch(batch);
             rebuildLineStarts(); updateDirtyFlag();
             forkReconvActive = true; forkReconvUndoDepth = undo.undoStack.size(); forkReconvLength = pt.length();
         }
@@ -319,16 +319,9 @@
     }
     void forkOnAppDeactivated() {
         if (!forkCanAutoSave()) return;
+        // Since upstream v1.0.53, saveFile keeps the undo history and marks the saved point itself.
         commitPadding();
-        // saveFile reopens the file, which clears the undo history. Keep it when the reopened
-        // text has the same size and sample hash as what was saved; otherwise (for example a
-        // lossy encoding) the recorded positions may not match, so the history stays cleared.
-        auto undoStack = undo.undoStack; auto redoStack = undo.redoStack;
-        size_t len = pt.length(); uint32_t hash = calcSampleHash(0, len);
-        if (!saveFile(currentFilePath)) return;
-        if (pt.length() != len || calcSampleHash(0, len) != hash) return;
-        undo.undoStack = std::move(undoStack); undo.redoStack = std::move(redoStack); undo.markSaved();
-        updateDirtyFlag();
+        saveFile(currentFilePath);
     }
 
     // Hooked into upstream's checkUnsavedChanges: an untitled buffer holding only whitespace
@@ -417,32 +410,15 @@
     void forkApplyListResult(const ForkListContext& ctx, const forklist::Result& r) {
         const forklist::Lines& oldL = ctx.lines; const forklist::Lines& newL = r.lines;
         if (oldL == newL) { forkSetListCursor(ctx.first, r.anchor, r.head); ensureCaretVisible(); InvalidateRect(hwnd, NULL, FALSE); return; }
-        size_t pre = 0;
-        while (pre < oldL.size() && pre < newL.size() && oldL[pre] == newL[pre]) ++pre;
-        size_t suf = 0;
-        while (suf < oldL.size() - pre && suf < newL.size() - pre && oldL[oldL.size() - 1 - suf] == newL[newL.size() - 1 - suf]) ++suf;
         commitPadding();
-        int totalLines = (int)lineStarts.size();
-        int s = ctx.first + (int)pre, k = ctx.first + (int)(oldL.size() - suf);
-        size_t start = lineStarts[s];
-        size_t end = k < totalLines ? lineStarts[k] : pt.length();
-        // Old lines [s, k) are replaced with their line endings, except that the document's
-        // last line has none; text appended after the last line needs a leading newline instead.
-        bool appendAtEnd = k >= totalLines && s == k;
-        std::string newText;
-        for (size_t i = pre; i < newL.size() - suf; ++i) {
-            bool lastNew = i + 1 == newL.size() - suf;
-            if (appendAtEnd) newText += newlineStr;
-            newText += newL[i];
-            if (!appendAtEnd && (k < totalLines || !lastNew)) newText += newlineStr;
-        }
+        forklist::Splice sp = forklist::spliceFor(oldL, newL, (size_t)ctx.first, lineStarts, pt.length(), newlineStr);
         EditBatch batch; batch.beforeCursors = cursors;
-        std::string oldText = pt.getRange(start, end - start);
-        if (!oldText.empty()) { pt.erase(start, oldText.size()); batch.ops.push_back({ EditOp::Erase, start, oldText }); }
-        if (!newText.empty()) { pt.insert(start, newText); batch.ops.push_back({ EditOp::Insert, start, newText }); }
+        std::string oldText = pt.getRange(sp.start, sp.end - sp.start);
+        if (!oldText.empty()) { pt.erase(sp.start, oldText.size()); batch.ops.push_back({ EditOp::Erase, sp.start, oldText }); }
+        if (!sp.text.empty()) { pt.insert(sp.start, sp.text); batch.ops.push_back({ EditOp::Insert, sp.start, sp.text }); }
         rebuildLineStarts();
         forkSetListCursor(ctx.first, r.anchor, r.head);
-        batch.afterCursors = cursors; undo.push(batch); ensureCaretVisible(); updateDirtyFlag(); InvalidateRect(hwnd, NULL, FALSE);
+        batch.afterCursors = cursors; pushUndoBatch(batch); ensureCaretVisible(); updateDirtyFlag(); InvalidateRect(hwnd, NULL, FALSE);
     }
     // Enter (from WM_CHAR): continue the list. Shift+Enter keeps a plain line break.
     bool forkListEnter() {

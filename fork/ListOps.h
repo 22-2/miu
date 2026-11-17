@@ -344,6 +344,36 @@ inline Result onEnter(const Lines& in, size_t line, size_t col, const std::strin
     return r;
 }
 
+// The document edit that turns the window oldL (starting at document line `first`) into newL:
+// replace bytes [start, end) with text. Only the lines that differ are touched.
+// lineStarts holds the byte offset of every document line; nl is the document's line ending.
+struct Splice { bool changed = false; size_t start = 0; size_t end = 0; std::string text; };
+inline Splice spliceFor(const Lines& oldL, const Lines& newL, size_t first, const std::vector<size_t>& lineStarts, size_t docLength, const std::string& nl) {
+    Splice sp;
+    if (oldL == newL) return sp;
+    size_t pre = 0;
+    while (pre < oldL.size() && pre < newL.size() && oldL[pre] == newL[pre]) ++pre;
+    size_t suf = 0;
+    while (suf < oldL.size() - pre && suf < newL.size() - pre && oldL[oldL.size() - 1 - suf] == newL[newL.size() - 1 - suf]) ++suf;
+    size_t total = lineStarts.size();
+    size_t s = first + pre, k = first + oldL.size() - suf;
+    // s can be one past the last line when lines are only appended after the document's end.
+    auto offsetOf = [&](size_t line) { return line < total ? lineStarts[line] : docLength; };
+    sp.changed = true;
+    sp.start = offsetOf(s);
+    sp.end = offsetOf(k);
+    // Old lines [s, k) are replaced together with their line endings, except that the
+    // document's last line has none; lines appended after it need a leading newline instead.
+    bool appendAtEnd = k >= total && s == k;
+    for (size_t i = pre; i < newL.size() - suf; ++i) {
+        bool lastNew = i + 1 == newL.size() - suf;
+        if (appendAtEnd) sp.text += nl;
+        sp.text += newL[i];
+        if (!appendAtEnd && (k < total || !lastNew)) sp.text += nl;
+    }
+    return sp;
+}
+
 // Rewrites the leading whitespace of s to width w, in tabs when the list indents with tabs.
 inline void setIndentWidth(std::string& s, int w, const std::string& unit) {
     s.erase(0, leadingBytes(s));
