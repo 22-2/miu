@@ -30,6 +30,21 @@ static inline void MiuShowSaveErrorAlert(void) {
     [errAlert runModal];
 }
 
+static inline NSURL *MiuPreviewBaseURL(void) {
+    return [NSURL URLWithString:@"about:blank"];
+}
+
+static inline BOOL MiuShouldAllowPreviewNavigation(NSURL * _Nullable url, BOOL isMainFrame, WKNavigationType navType) {
+    if (!isMainFrame || navType != WKNavigationTypeOther) {
+        return NO;
+    }
+    NSString *scheme = url.scheme ? [url.scheme lowercaseString] : @"";
+    NSString *absStr = url ? [[url absoluteString] lowercaseString] : @"";
+    return ([absStr isEqualToString:@"about:blank"] ||
+            [absStr hasPrefix:@"about:blank#"] ||
+            [scheme isEqualToString:@"applewebdata"]);
+}
+
 static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList * _Nullable ruleList)) {
     static WKContentRuleList *s_cachedRuleList = nil;
     static NSMutableArray<void (^)(WKContentRuleList *)> *s_pendingCallbacks = nil;
@@ -50,10 +65,22 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     }
     s_isCompiling = YES;
 
-    void (^finishWithRuleList)(WKContentRuleList * _Nullable) = ^(WKContentRuleList * _Nullable compiled) {
+    __block BOOL didFinishAttempt = NO;
+    __block void (^finishWithRuleList)(WKContentRuleList * _Nullable) = nil;
+    finishWithRuleList = ^(WKContentRuleList * _Nullable compiled) {
+        if (![NSThread isMainThread]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                finishWithRuleList(compiled);
+            });
+            return;
+        }
         if (compiled) {
             s_cachedRuleList = compiled;
         }
+        if (didFinishAttempt) {
+            return;
+        }
+        didFinishAttempt = YES;
         s_isCompiling = NO;
         NSArray<void (^)(WKContentRuleList *)> *callbacks = [s_pendingCallbacks copy];
         [s_pendingCallbacks removeAllObjects];
@@ -61,6 +88,13 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
             cb(compiled);
         }
     };
+
+    // Guard against XPC stalls in WKContentRuleListStore so Live Preview never hangs indefinitely.
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(300 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+        if (!didFinishAttempt) {
+            finishWithRuleList(s_cachedRuleList);
+        }
+    });
 
     WKContentRuleListStore *store = [WKContentRuleListStore defaultStore];
     if (!store) {
@@ -191,12 +225,8 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     }
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
-    NSURL *url = navigationAction.request.URL;
-    NSString *absStr = url ? [[url absoluteString] lowercaseString] : @"";
     BOOL isMainFrame = (navigationAction.targetFrame != nil && navigationAction.targetFrame.isMainFrame);
-    if (isMainFrame &&
-        navigationAction.navigationType == WKNavigationTypeOther &&
-        ([absStr isEqualToString:@"about:blank"] || [absStr hasPrefix:@"about:blank#"])) {
+    if (MiuShouldAllowPreviewNavigation(navigationAction.request.URL, isMainFrame, navigationAction.navigationType)) {
         decisionHandler(WKNavigationActionPolicyAllow);
     } else {
         decisionHandler(WKNavigationActionPolicyCancel);
@@ -227,7 +257,7 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     NSString *html = self.pendingHtml;
     if (html) {
         self.pendingHtml = nil;
-        [webView loadHTMLString:html baseURL:nil];
+        [webView loadHTMLString:html baseURL:MiuPreviewBaseURL()];
     }
 }
 - (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
@@ -238,7 +268,7 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     NSString *html = self.pendingHtml;
     if (html) {
         self.pendingHtml = nil;
-        [webView loadHTMLString:html baseURL:nil];
+        [webView loadHTMLString:html baseURL:MiuPreviewBaseURL()];
     }
 }
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
@@ -973,7 +1003,11 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
         [self ensurePreviewViewsCreated];
         [self updatePreviewBackground];
         CGFloat splitLineW = 1.0;
-        CGFloat leftW = std::floor(cb.size.width * editor->previewSplitRatio);
+        float splitRatio = std::isfinite(editor->previewSplitRatio)
+            ? std::clamp(editor->previewSplitRatio, 0.15f, 0.85f)
+            : 0.5f;
+        editor->previewSplitRatio = splitRatio;
+        CGFloat leftW = std::floor(cb.size.width * splitRatio);
         CGFloat rightW = std::max((CGFloat)10.0, cb.size.width - leftW - splitLineW);
         [self setFrame:NSMakeRect(0, 0, leftW, availH)];
         [splitterView setFrame:NSMakeRect(leftW - 3.0, 0, 4.0, availH)];
@@ -1005,7 +1039,7 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     if (!editor->previewInitialLoaded || !res.isMdOrMermaidShell || !previewMsgHandler.previewPageLoaded) {
         previewMsgHandler.previewPageLoaded = NO;
         editor->previewInitialLoaded = res.isMdOrMermaidShell;
-        [previewWebView loadHTMLString:fullHtmlNS baseURL:nil];
+        [previewWebView loadHTMLString:fullHtmlNS baseURL:MiuPreviewBaseURL()];
     } else {
         std::string js = MiuPreview::buildDomUpdateJs(res.bodyContent, editor->isDarkMode);
         NSString *jsNS = MiuNSStringFromStdString(js);
@@ -1015,7 +1049,7 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
             [wv evaluateJavaScript:jsNS completionHandler:^(id result, NSError *error) {
                 if (error) {
                     mh.previewPageLoaded = NO;
-                    [wv loadHTMLString:fullHtmlNS baseURL:nil];
+                    [wv loadHTMLString:fullHtmlNS baseURL:MiuPreviewBaseURL()];
                 }
             }];
         }
@@ -1171,7 +1205,7 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
     if (![self window]) return;
     NSDictionary *infoDict = [[NSBundle mainBundle] infoDictionary];
     NSString *appVersion = infoDict[@"CFBundleShortVersionString"];
-    if (!appVersion) appVersion = @"1.0.53";
+    if (!appVersion) appVersion = @"1.0.55";
     NSString *versionString = [NSString stringWithFormat:@"miu v%@", appVersion];
     editor->appVersionStr = UTF8ToW([versionString UTF8String]);
     NSString *localizedHelp = NSLocalizedString(@"HelpText", @"ヘルプのショートカット一覧");
@@ -1796,8 +1830,9 @@ static void MiuLoadOfflineContentRuleList(void (^completion)(WKContentRuleList *
         [self setNeedsDisplay:YES];
         if (code == 122) return;
     }
+    bool isOptionToggleShortcut = (opt && !cmd && !ctrl && !shift && (code == 6 || code == 35 || code == 17));
     if ([self hasMarkedText]) {
-        if (!cmd) {
+        if (!cmd && !isOptionToggleShortcut) {
             [self.inputContext handleEvent:e];
             return;
         }
